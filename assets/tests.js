@@ -1086,7 +1086,7 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('services/elastic-search.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'services/elastic-search.js should pass ESLint\n\n3:10 - \'alias\' is defined but never used. (no-unused-vars)\n4:10 - \'later\' is defined but never used. (no-unused-vars)\n5:8 - \'$\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'services/elastic-search.js should pass ESLint\n\n3:10 - \'alias\' is defined but never used. (no-unused-vars)\n4:10 - \'later\' is defined but never used. (no-unused-vars)\n5:8 - \'$\' is defined but never used. (no-unused-vars)\n168:9 - Unexpected console statement. (no-console)\n177:22 - \'sortObject\' is defined but never used. (no-unused-vars)');
   });
   QUnit.test('services/environment-service.js', function (assert) {
     assert.expect(1);
@@ -1094,7 +1094,7 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('services/filter-service.js', function (assert) {
     assert.expect(1);
-    assert.ok(true, 'services/filter-service.js should pass ESLint\n\n');
+    assert.ok(false, 'services/filter-service.js should pass ESLint\n\n2:10 - \'computed\' is defined but never used. (no-unused-vars)');
   });
   QUnit.test('services/language-service.js', function (assert) {
     assert.expect(1);

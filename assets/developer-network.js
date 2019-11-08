@@ -3044,8 +3044,8 @@
 
       this.set('currentPage', 1);
     },
-    searchResults: Ember.computed('filterService.sortedUsers', function () {
-      return this.get('filterService.sortedUsers');
+    searchResults: Ember.computed('elasticSearch.searchResults', function () {
+      return this.get('elasticSearch.searchResults');
     }),
     // TODO: Alternative to not use observer
     searchResultsChanged: Ember.observer('searchResults', function () {
@@ -6922,6 +6922,7 @@
   var _default = Ember.Service.extend({
     store: Ember.inject.service(),
     searchService: Ember.inject.service(),
+    filterService: Ember.inject.service(),
     environmentService: Ember.inject.service(),
     ajax: Ember.inject.service(),
 
@@ -7060,16 +7061,24 @@
         body.from = from;
       }
 
+      console.log(body);
       return body;
     },
 
     /**
      * Querypublished users 
      * @param {int} page 1-index page of results
+     * @param {Object} sortObject ES sort object. Default null
      */
-    queryUsers(page) {
-      if (!page) page = 1;
-      let body = this.buildQueryBody((page - 1) * this.get('environmentService.search.searchChunkSize'));
+    queryUsers(page, sortObject) {
+      if (!page) page = 1; // Get ES search body
+
+      let body = this.buildQueryBody((page - 1) * this.get('environmentService.search.searchChunkSize')); // Add sortObject if provided
+
+      if (this.filterService.get('currentSort')) {
+        body.sort = this.filterService.get('currentSort')();
+      }
+
       this.set('currentPage', page);
       return this.store.query('search-result', body).then(results => {
         this.set('searchResults', results.toArray());
@@ -7144,69 +7153,52 @@
   });
   _exports.default = void 0;
   const SORT = {
-    nameAscending(a, b) {
-      return a.profile.bio.name.localeCompare(b.profile.bio.name);
+    nameAscending() {
+      return {
+        "profile.bio.name.keyword": {
+          "order": "asc"
+        }
+      };
     },
 
-    nameDescending(a, b) {
-      return b.profile.bio.name.localeCompare(a.profile.bio.name);
+    nameDescending() {
+      return {
+        "profile.bio.name.keyword": {
+          "order": "desc"
+        }
+      };
     },
 
-    userStatusAscending(a, b) {
-      return a.profile.bio.status.localeCompare(b.profile.bio.status);
+    userStatusAscending() {
+      return {
+        "profile.bio.status.keyword": {
+          "order": "asc"
+        }
+      };
     },
 
-    userStatusDescending(a, b) {
-      return b.profile.bio.status.localeCompare(a.profile.bio.status);
+    userStatusDescending() {
+      return {
+        "profile.bio.status.keyword": {
+          "order": "desc"
+        }
+      };
     },
 
-    projectsAscending(a, b) {
-      let aProjects = a.projects.length;
-      let bProjects = b.projects.length;
-      if (aProjects > bProjects) return -1;
-      if (aProjects < bProjects) return 1;
-      return 0;
+    platformsAscending() {
+      return {
+        "profile.skills.genesysPlatforms.keyword": {
+          "order": "asc"
+        }
+      };
     },
 
-    projectsDescending(a, b) {
-      let aProjects = a.projects.length;
-      let bProjects = b.projects.length;
-      if (aProjects < bProjects) return -1;
-      if (aProjects > bProjects) return 1;
-      return 0;
-    },
-
-    // TODO: Make a better algorithm for computing rating than jsut the average
-    ratingAscending(a, b) {
-      let aRating = a.ratings.avg;
-      let bRating = b.ratings.avg;
-      if (aRating > bRating) return -1;
-      if (aRating < bRating) return 1;
-      return 0;
-    },
-
-    ratingDescending(a, b) {
-      let aRating = a.ratings.avg;
-      let bRating = b.ratings.avg;
-      if (aRating < bRating) return -1;
-      if (aRating > bRating) return 1;
-      return 0;
-    },
-
-    platformsAscending(a, b) {
-      let aPlatforms = a.profile.skills.genesysPlatforms.length;
-      let bPlatforms = b.profile.skills.genesysPlatforms.length;
-      if (aPlatforms > bPlatforms) return -1;
-      if (aPlatforms < bPlatforms) return 1;
-      return 0;
-    },
-
-    platformsDescending(a, b) {
-      let aPlatforms = a.profile.skills.genesysPlatforms.length;
-      let bPlatforms = b.profile.skills.genesysPlatforms.length;
-      if (aPlatforms < bPlatforms) return -1;
-      if (aPlatforms > bPlatforms) return 1;
-      return 0;
+    platformsDescending() {
+      return {
+        "profile.skills.genesysPlatforms.keyword": {
+          "order": "desc"
+        }
+      };
     }
 
   };
@@ -7228,58 +7220,39 @@
       this.set('collapsables', collapsablesToCheck);
     },
 
-    sortedUsers: Ember.computed('elasticSearch.searchResults', 'currentSort', function () {
-      let sortFunc = this.get('currentSort'); // Shallow copy the array for sort mutation 
-      // to keep original sorting of ES
-
-      let resultArr = [];
-      this.elasticSearch.searchResults.forEach(result => resultArr.push(result));
-      if (sortFunc) resultArr.sort(sortFunc);
-      return resultArr;
-    }),
-
     defaultSort() {
       this.set('currentSort', null);
+      this.elasticSearch.queryUsers(1);
     },
 
     sortByNameAscending() {
       this.set('currentSort', SORT.nameAscending);
+      this.elasticSearch.queryUsers(1);
     },
 
     sortByNameDescending() {
       this.set('currentSort', SORT.nameDescending);
+      this.elasticSearch.queryUsers(1);
     },
 
     sortByUserStatusAscending() {
       this.set('currentSort', SORT.userStatusAscending);
+      this.elasticSearch.queryUsers(1);
     },
 
     sortByUserStatusDescending() {
       this.set('currentSort', SORT.userStatusDescending);
-    },
-
-    sortByProjectsAscending() {
-      this.set('currentSort', SORT.projectsAscending);
-    },
-
-    sortByProjectsDescending() {
-      this.set('currentSort', SORT.projectsDescending);
-    },
-
-    sortByRatingAscending() {
-      this.set('currentSort', SORT.ratingAscending);
-    },
-
-    sortByRatingDescending() {
-      this.set('currentSort', SORT.ratingDescending);
+      this.elasticSearch.queryUsers(1);
     },
 
     sortByPlatformsAscending() {
       this.set('currentSort', SORT.platformsAscending);
+      this.elasticSearch.queryUsers(1);
     },
 
     sortByPlatformsDescending() {
       this.set('currentSort', SORT.platformsDescending);
+      this.elasticSearch.queryUsers(1);
     }
 
   });
@@ -11052,7 +11025,7 @@ catch(err) {
 
 ;
           if (!runningTests) {
-            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+c6a3ca03"});
+            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+6eeea8ce"});
           }
         
 //# sourceMappingURL=developer-network.map
