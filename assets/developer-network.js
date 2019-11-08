@@ -158,6 +158,147 @@
 
   _exports.default = _default;
 });
+;define("developer-network/adapters/genbadge", ["exports", "ember-data", "aws-amplify"], function (_exports, _emberData, _awsAmplify) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = _emberData.default.Adapter.extend({
+    authentication: Ember.inject.service(),
+
+    createRecord(store, type, snapshot) {
+      let requestBody = this.serialize(snapshot);
+      console.log(requestBody);
+      let token = this.get('authentication').get('token'),
+          myParams = {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'user': token
+        },
+        response: true,
+        body: requestBody
+      };
+      return new Ember.RSVP.Promise((resolve, reject) => {
+        _awsAmplify.API.post('CreatorsProfileAPI', '/me/badges' + '?type=GENESYS', myParams).then(result => {
+          Ember.debug('api response: ', result);
+          console.log(result);
+          let badgesArr = result.data.genbadges;
+          resolve(result.data.genbadges);
+        }).catch(error => {
+          console.error(error);
+          (true && Ember.warn('api error: ' + error, true, {
+            id: 'adapter.genbadge.createRecord'
+          }));
+          reject(error);
+        });
+      });
+    },
+
+    deleteRecord(store, type, snapshot) {
+      let id = snapshot.id;
+      let token = this.get('authentication').get('token'),
+          myParams = {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'user': token
+        },
+        response: true
+      };
+      return new Ember.RSVP.Promise((resolve, reject) => {
+        _awsAmplify.API.del('CreatorsProfileAPI', '/me/badges/' + id + '?type=GENESYS', myParams).then(result => {
+          Ember.debug('api response: ', result);
+          console.log(result);
+          resolve();
+        }).catch(error => {
+          console.error(error);
+          (true && Ember.warn('api error: ' + error, true, {
+            id: 'adapter.genbadge.deleteRecord'
+          }));
+          reject(error);
+        });
+      });
+    },
+
+    // findAll with import = true is leveraged to refresh/reimport genesys badges on server side
+    // otherwise managed as get of all genesys badges
+    findAll(store, type, sinceToken, snapshotRecordArray) {
+      let requestBody = {};
+      let token = this.get('authentication').get('token'),
+          myParams = {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'user': token
+        },
+        response: true
+      };
+
+      if (snapshotRecordArray && snapshotRecordArray.adapterOptions && snapshotRecordArray.adapterOptions.import) {
+        myParams.body = requestBody;
+        return new Ember.RSVP.Promise((resolve, reject) => {
+          _awsAmplify.API.post('CreatorsProfileAPI', '/me/badges' + '?type=GENESYS', myParams).then(result => {
+            Ember.debug('api response: ', result);
+            console.log(result);
+            resolve(result.data.genbadges);
+          }).catch(function (error) {
+            console.error(error);
+            (true && Ember.warn('api error: ' + error, true, {
+              id: 'adapter.genbadge.findAll'
+            }));
+            reject(error);
+          });
+        });
+      }
+
+      return new Ember.RSVP.Promise((resolve, reject) => {
+        _awsAmplify.API.get('CreatorsProfileAPI', '/me/badges' + '?type=GENESYS', myParams).then(result => {
+          Ember.debug('api response: ', result);
+          console.log(result);
+          resolve(result.data.genbadges);
+        }).catch(function (error) {
+          console.error(error);
+          (true && Ember.warn('api error: ' + error, true, {
+            id: 'adapter.genbadge.findAll'
+          }));
+          reject(error);
+        });
+      });
+    },
+
+    findRecord: function (store, type, id, snapshot) {
+      let token = this.get('authentication').get('token'),
+          myParams = {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'user': token
+        },
+        response: true
+      };
+      return new Ember.RSVP.Promise(function (resolve, reject) {
+        _awsAmplify.API.get('CreatorsProfileAPI', '/me/badges/' + id + '?type=GENESYS', myParams).then(result => {
+          console.log(result);
+          Ember.debug('api response: ', result);
+          let badgesArr = result.data.genbadges;
+          resolve(badgesArr[0]);
+        }).catch(function (error) {
+          console.error(error);
+          (true && Ember.warn('api error: ' + error, true, {
+            id: 'adapter.genbadge.findRecord'
+          }));
+          Ember.run(null, reject, error);
+        });
+      });
+    }
+  });
+
+  _exports.default = _default;
+});
 ;define("developer-network/adapters/profile", ["exports", "ember-data", "aws-amplify"], function (_exports, _emberData, _awsAmplify) {
   "use strict";
 
@@ -392,6 +533,7 @@
 
   var _default = _emberData.default.JSONAPIAdapter.extend({
     environmentService: Ember.inject.service(),
+    elasticSearch: Ember.inject.service(),
     findRecord: function (store, type, id, snapshot) {
       return this.ajax(this.get('environmentService.search.searchEsUrl') + id, 'GET').then(response => {
         return response._source;
@@ -415,6 +557,7 @@
           source_content_type: "application/json"
         }
       }).then(response => {
+        this.set('elasticSearch.totalSearchResults', response.hits.total);
         return response.hits; // let usersArr = response.hits.hits;
         // usersArr = usersArr.map((user) => user._source);
         // return(usersArr);
@@ -2094,8 +2237,29 @@
   var _default = Ember.Component.extend({
     init() {
       this._super(...arguments);
-    }
 
+      this.set('currentPage', 1);
+      this.set('pageCount', 4);
+    },
+
+    actions: {
+      goToPage(page) {
+        this.set('currentPage', page);
+      },
+
+      nextPage() {
+        if (this.get('currentPage') < this.get('pageCount')) {
+          this.set('currentPage', this.get('currentPage') + 1);
+        }
+      },
+
+      prevPage() {
+        if (this.get('currentPage') > 1) {
+          this.set('currentPage', this.get('currentPage') - 1);
+        }
+      }
+
+    }
   });
 
   _exports.default = _default;
@@ -2326,8 +2490,18 @@
     categoryEnumsService: Ember.inject.service(),
     elasticSearch: Ember.inject.service(),
     filterService: Ember.inject.service(),
+    environmentService: Ember.inject.service(),
     classNames: ["filter-category"],
     searchQuery: Ember.computed.alias('elasticSearch.searchQuery'),
+    searchQueryCond: Ember.computed.alias('elasticSearch.searchQueryCond'),
+    categoryConditionToggle: Ember.computed('categoryCondition', function () {
+      this.searchQueryCond[this.cbData] = this.categoryCondition;
+      return this.categoryCondition;
+    }),
+    resetTag: Ember.computed('elasticSearch.resetRequested', function () {
+      this.set('categoryCondition', this.searchQueryCond[this.cbData]);
+      return 0;
+    }),
 
     init() {
       this._super(...arguments); // Options in the checkbox
@@ -2402,6 +2576,7 @@
 
 
       this.checkedValues = this.searchQuery[this.cbData];
+      this.categoryCondition = this.searchQueryCond[this.cbData];
     },
 
     didInsertElement() {
@@ -2592,11 +2767,7 @@
       this._super(...arguments);
 
       let searchFilters = this.get('environmentService.search.searchFilters');
-      let filtersToCheck = [];
-      searchFilters.forEach(sFilter => {
-        filtersToCheck.push(sFilter.key);
-      });
-      this.set('enabledFilters', filtersToCheck);
+      this.set('enabledFilters', searchFilters);
 
       if (this.elasticSearch.searchResults.length == 0) {
         this.set('loading', true);
@@ -2628,8 +2799,22 @@
           });
         } // Set search query to  blank object
 
+        /*
+        Reflect.ownKeys(this.elasticSearch.searchQuery)
+            .forEach(
+                key => this.elasticSearch.searchQuery[key].length = 0
+            );
+        */
+        // Set search query to  blank object
+        // Set search query condition to defaut (environment config settings)
 
-        Reflect.ownKeys(this.elasticSearch.searchQuery).forEach(key => this.elasticSearch.searchQuery[key].length = 0);
+
+        this.enabledFilters.forEach(sFilter => {
+          this.elasticSearch.searchQuery[sFilter.key].length = 0;
+          this.elasticSearch.searchQueryCond[sFilter.key] = sFilter.condition;
+        }); // Reset condition toggle to defaut setting
+
+        this.elasticSearch.relayResetToUIChilds();
         this.set('loading', true);
         this.elasticSearch.setFilterString("");
         this.elasticSearch.clearUserSearch();
@@ -2637,6 +2822,30 @@
       }
 
     }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/components/filter-profile/pagination", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.Component.extend({
+    elasticSearch: Ember.inject.service(),
+    pages: Ember.computed('pageCount', function () {
+      let countArr = [];
+
+      for (let i = 0; i < this.get('pageCount'); i++) {
+        countArr.push(i + 1);
+      }
+
+      return countArr;
+    }),
+    actions: {}
   });
 
   _exports.default = _default;
@@ -2663,7 +2872,7 @@
 
   _exports.default = _default;
 });
-;define("developer-network/components/filter-profile/search-results", ["exports", "masonry-layout"], function (_exports, _masonryLayout) {
+;define("developer-network/components/filter-profile/search-bar", ["exports"], function (_exports) {
   "use strict";
 
   Object.defineProperty(_exports, "__esModule", {
@@ -2671,23 +2880,20 @@
   });
   _exports.default = void 0;
 
-  /**
-   * Component of checkbox options for filtering user profiles.
-   */
   var _default = Ember.Component.extend({
-    classNames: ['searchResults'],
-    elasticSearch: Ember.inject.service(),
-    filterService: Ember.inject.service(),
-    loadMorePressed: false,
-    searchResults: Ember.computed('filterService.sortedUsers', function () {
-      return this.get('filterService.sortedUsers');
+    router: Ember.inject.service(),
+    searchService: Ember.inject.service('search-service'),
+    filterService: Ember.inject.service('filter-service'),
+    shouldDisplayX: Ember.computed('searchValue', function () {
+      return !!this.get('searchValue');
     }),
-    searchResultsChanged: Ember.observer('searchResults', function () {
-      // Just so the spinner will disappear correctly after loading
-      Ember.run.later(this, () => {
-        this.set('loading', false);
-        this.set('visibleCount', 20);
-      }, 400);
+    // searchValue: computed('searchService.searchedText', function () {
+    //     return this.get('searchService.searchedText');
+    // }),
+    searchCleared: Ember.observer('searchService.searchCleared', function () {
+      if (this.get('searchService.searchCleared') == true) {
+        this.set('searchValue', null);
+      }
     }),
     // The sort type that's currently set in filter service
     // So we know where to draw the arrow thing
@@ -2695,26 +2901,25 @@
       if (this.filterService.currentSort) return this.filterService.currentSort.name;
       return null;
     }),
-    showLoadMore: Ember.computed('elasticSearch.totalSearchResults', 'searchResults', 'loading', function () {
-      if (!this.get('loading')) return this.get('searchResults').length < this.get('elasticSearch').totalSearchResults;else return false;
-    }),
 
-    didRender() {// later(this, ()=>{
-      //     new Masonry('.search-results', {
-      //         itemSelector: '.profile-card-outer-container',
-      //         columnWidth: 10
-      //     });
-      // }, 400);
+    init() {
+      this._super(...arguments);
+
+      this.set('mobileFilterShown', false);
     },
 
     actions: {
-      loadMore() {
-        this.set('loadMorePressed', true);
-        this.elasticSearch.queryUsers(this.get('searchResults').length).then(() => {
-          Ember.run.later(this, () => {
-            this.set('loadMorePressed', false);
-          }, 500);
-        });
+      clearSearch: function () {
+        this.set('searchValue', null);
+        this.get('searchService').clearSearch();
+      },
+
+      handleSearch() {
+        if (this.get('router.currentRouteName') != 'index.index') {
+          this.router.transitionTo('index');
+        }
+
+        this.get('searchService').search(this.get('searchValue'));
       },
 
       sortNameClick() {
@@ -2729,6 +2934,22 @@
 
           default:
             this.filterService.sortByNameAscending();
+            break;
+        }
+      },
+
+      sortUserStatusClick() {
+        switch (this.get('sortTypeActive')) {
+          case "userStatusAscending":
+            this.filterService.sortByUserStatusDescending();
+            break;
+
+          case "userStatusDescending":
+            this.filterService.defaultSort();
+            break;
+
+          default:
+            this.filterService.sortByUserStatusAscending();
             break;
         }
       },
@@ -2779,6 +3000,96 @@
             this.filterService.sortByPlatformsAscending();
             break;
         }
+      },
+
+      clickFilterButton() {
+        let mobileFilterShown = this.get('mobileFilterShown');
+
+        if (mobileFilterShown) {
+          window.document.documentElement.querySelectorAll('.navigation-sidebar').forEach(el => {
+            el.classList.remove('show-mobile-mode');
+          });
+          this.set('mobileFilterShown', false);
+        } else {
+          window.document.documentElement.querySelectorAll('.navigation-sidebar').forEach(el => {
+            el.classList.add('show-mobile-mode');
+          });
+          this.set('mobileFilterShown', true);
+        }
+      }
+
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/components/filter-profile/search-results", ["exports", "masonry-layout"], function (_exports, _masonryLayout) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  /**
+   * Component of checkbox options for filtering user profiles.
+   */
+  var _default = Ember.Component.extend({
+    classNames: ['searchResults'],
+    elasticSearch: Ember.inject.service(),
+    filterService: Ember.inject.service(),
+    environmentService: Ember.inject.service(),
+    init: function () {
+      this._super(...arguments);
+
+      this.set('currentPage', 1);
+    },
+    searchResults: Ember.computed('filterService.sortedUsers', function () {
+      return this.get('filterService.sortedUsers');
+    }),
+    // TODO: Alternative to not use observer
+    searchResultsChanged: Ember.observer('searchResults', function () {
+      // Just so the spinner will disappear correctly after loading
+      Ember.run.later(this, () => {
+        this.set('loading', false); // TODO: Delete this functionality in the future
+
+        this.set('visibleCount', 100);
+      }, 400);
+    }),
+    pageCount: Ember.computed('elasticSearch.totalSearchResults', function () {
+      let count = Math.ceil(this.get('elasticSearch.totalSearchResults') / this.get('environmentService.search.searchChunkSize'));
+      return count;
+    }),
+    showPagination: Ember.computed('loading', function () {
+      return !this.get('loading');
+    }),
+
+    didRender() {// later(this, ()=>{
+      //     new Masonry('.search-results', {
+      //         itemSelector: '.profile-card-outer-container',
+      //         columnWidth: 10
+      //     });
+      // }, 400);
+    },
+
+    actions: {
+      goToPage(page) {
+        this.get('elasticSearch').queryUsers(page);
+        this.set('currentPage', page);
+      },
+
+      nextPage() {
+        if (this.get('currentPage') < this.get('pageCount')) {
+          this.set('currentPage', this.get('currentPage') + 1);
+          this.get('elasticSearch').queryUsers(this.get('currentPage'));
+        }
+      },
+
+      prevPage() {
+        if (this.get('currentPage') > 1) {
+          this.set('currentPage', this.get('currentPage') - 1);
+          this.get('elasticSearch').queryUsers(this.get('currentPage'));
+        }
       }
 
     }
@@ -2799,6 +3110,7 @@
       this._super(...arguments);
 
       this.set('isSubmitting', false);
+      this.set('invalidImage', false);
     },
 
     actions: {
@@ -3026,7 +3338,7 @@
 
   _exports.default = _default;
 });
-;define("developer-network/components/generic/img-uploader-container", ["exports"], function (_exports) {
+;define("developer-network/components/generic/img-uploader-container", ["exports", "developer-network/config/environment"], function (_exports, _environment) {
   "use strict";
 
   Object.defineProperty(_exports, "__esModule", {
@@ -3039,6 +3351,7 @@
       this._super(...arguments);
 
       this.set('showNewLogoPreview', false);
+      this.set('maxSize', _environment.default.APP.PICTURE_MAX_SIZE);
     },
 
     actions: {
@@ -3047,6 +3360,8 @@
         let logoFiles = document.getElementById("upload-logo").files;
 
         if (logoFiles.length > 0) {
+          this.set('logoSize', Math.floor(logoFiles[0].size / 1024));
+          this.set('invalidImage', this.get('logoSize') > this.get('maxSize'));
           const reader = new FileReader();
           reader.readAsDataURL(logoFiles[0]);
 
@@ -3161,19 +3476,6 @@
     },
 
     actions: {
-      clearSearch: function () {
-        this.set('searchValue', null);
-        this.get('searchService').clearSearch();
-      },
-
-      handleSearch() {
-        if (this.get('router.currentRouteName') != 'index.index') {
-          this.router.transitionTo('index');
-        }
-
-        this.get('searchService').search(this.get('searchValue'));
-      },
-
       navigateHome() {
         this.router.transitionTo('index'); // this.sendAction('navigateHome');
       },
@@ -3239,6 +3541,13 @@
               resolve("assets/img/person.svg");
             }
           });
+        })
+      });
+    }),
+    availability: Ember.computed('authentication.userProfile', function () {
+      return _emberData.default.PromiseObject.create({
+        promise: new Promise((resolve, reject) => {
+          this.authentication.userProfile.then(user => resolve(user.profile.bio.status));
         })
       });
     }),
@@ -3426,6 +3735,7 @@
   _exports.default = void 0;
 
   var _default = Ember.Component.extend({
+    classNames: ['custom-badge'],
     store: Ember.inject.service(),
 
     init() {
@@ -3590,6 +3900,82 @@
   _exports.default = void 0;
 
   var _default = Ember.Component.extend({});
+
+  _exports.default = _default;
+});
+;define("developer-network/components/profile-page/genbadge-container", ["exports", "developer-network/validations/genbadge", "ember-changeset-validations", "ember-changeset"], function (_exports, _genbadge, _emberChangesetValidations, _emberChangeset) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.Component.extend({
+    classNames: ['genbadge'],
+    store: Ember.inject.service(),
+
+    init() {
+      this._super(...arguments);
+    },
+
+    actions: {
+      /**
+       * Show the delete confirmation dialog
+       * @param {Model} genbadge 
+       */
+      deleteGenbadge(genbadge) {
+        this.set('deleteGenbadgeShow', true);
+        this.set('stagedGenbadgeForDeletion', genbadge);
+      },
+
+      confirmDeleteGenbadge() {
+        let delGenbadge = this.get('stagedGenbadgeForDeletion');
+        return delGenbadge.destroyRecord().then(() => this.set('deleteGenbadgeShow', false));
+      },
+
+      cancelGenbadgeDeletion() {
+        this.set('deleteGenbadgeShow', false);
+      },
+
+      /**
+       * Show the import confirmation dialog
+       * @param {Model} genbadge 
+       */
+      importGenbadge() {
+        this.set('importGenbadgeShow', true);
+      },
+
+      confirmImportGenbadge() {
+        this.store.unloadAll('genbadge'); // Workaround for store - adapterOptions.import = true is used to let genbadge adapter that findAll will be used to request a reimport of badges, on server side.
+
+        this.store.findAll('genbadge', {
+          adapterOptions: {
+            import: true
+          }
+        }).then(() => this.set('importGenbadgeShow', false));
+      },
+
+      cancelGenbadgeImport() {
+        this.set('importGenbadgeShow', false);
+      }
+
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/components/profile-page/genbadge-detail", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.Component.extend({
+    assetLocatorService: Ember.inject.service()
+  });
 
   _exports.default = _default;
 });
@@ -4099,6 +4485,37 @@
       return _changeset.changeset;
     }
   });
+});
+;define("developer-network/helpers/csharp-rename", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.csharpRename = csharpRename;
+  _exports.default = void 0;
+
+  function csharpRename(params
+  /*, hash*/
+  ) {
+    let [arr] = params;
+    return arr.map(element => {
+      switch (element.toLowerCase()) {
+        case "csharp":
+          return "C#";
+
+        case "vbsharp":
+          return "VB.NET";
+
+        default:
+          return element;
+      }
+    });
+  }
+
+  var _default = Ember.Helper.helper(csharpRename);
+
+  _exports.default = _default;
 });
 ;define("developer-network/helpers/ember-power-select-is-group", ["exports", "ember-power-select/helpers/ember-power-select-is-group"], function (_exports, _emberPowerSelectIsGroup) {
   "use strict";
@@ -5280,7 +5697,10 @@
     description: _emberData.default.attr('string', {
       defaultValue: () => ''
     }),
-    date: _emberData.default.attr('string', {
+    issuedAt: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    issuer: _emberData.default.attr('string', {
       defaultValue: () => ''
     }),
     logoUrl: _emberData.default.attr('string', {
@@ -5288,6 +5708,52 @@
     }),
     logoData: _emberData.default.attr('string', {
       defaultValue: () => undefined
+    })
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/models/genbadge", ["exports", "ember-data"], function (_exports, _emberData) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = _emberData.default.Model.extend({
+    url: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    name: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    description: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    imageUrl: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    issuer: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    issuerUrl: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    issuedAt: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    expiresAt: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    issuedTo: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    lastRefresh: _emberData.default.attr('string', {
+      defaultValue: () => ''
+    }),
+    includesCertification: _emberData.default.attr('boolean', {
+      defaultValue: () => false
     })
   });
 
@@ -5446,6 +5912,9 @@
     badges: _emberData.default.attr('array', {
       defaultValue: () => {}
     }),
+    genbadges: _emberData.default.attr('array', {
+      defaultValue: () => {}
+    }),
     ratings: _emberData.default.attr('object', {
       defaultValue: () => ({
         '0': 0,
@@ -5501,6 +5970,9 @@
       async: true
     }),
     badges: _emberData.default.hasMany('badge', {
+      async: true
+    }),
+    genbadges: _emberData.default.hasMany('genbadge', {
       async: true
     }),
     ratings: _emberData.default.attr('object', {
@@ -5594,10 +6066,9 @@
     filterService: Ember.inject.service('filter-service'),
     authentication: Ember.inject.service(),
 
-    activate() {
-      window.scrollTo(0, 0);
-    },
-
+    // activate() {
+    //     window.scrollTo(0,0);
+    // },
     init() {
       this._super(...arguments);
 
@@ -5628,7 +6099,19 @@
     router: Ember.inject.service(),
 
     activate() {
-      window.scrollTo(0, 0);
+      // Scroll back to top of profile card when 
+      // scroll from previous page is so far below
+      let doc = document.documentElement;
+      let left = (window.pageXOffset || doc.scrollLeft) - (doc.clientLeft || 0);
+      let top = (window.pageYOffset || doc.scrollTop) - (doc.clientTop || 0);
+
+      if (top > 800) {
+        window.scrollTo({
+          top: 800,
+          left: 0,
+          behavior: 'smooth'
+        });
+      }
     },
 
     // Refresh model for when Amazon authenticataion acknowledges user
@@ -5647,6 +6130,7 @@
             console.log("You are.");
             this.store.unloadAll('project');
             this.store.unloadAll('badge');
+            this.store.unloadAll('genbadge');
             this.store.findRecord('user', profile_esId, {
               reload: true
             }).then(user => {
@@ -5654,7 +6138,8 @@
                 user: user,
                 profile: user.profile,
                 projects: this.store.peekAll('project'),
-                badges: this.store.peekAll('badge')
+                badges: this.store.peekAll('badge'),
+                genbadges: this.store.peekAll('genbadge')
               });
             }).catch(error => {
               reject(error);
@@ -5719,6 +6204,35 @@
     normalizeFindRecordResponse(store, primaryModelClass, payload, id, requestType) {
       // Change the payload to just the first badge object
       // let new_payload = payload.badges[0];
+      return this._super(store, primaryModelClass, new_payload, id, requestType);
+    },
+
+    serialize(snapshot, options) {
+      let json = this._super(...arguments);
+
+      if (json.logoData === null) {
+        delete json.logoData;
+      }
+
+      return json;
+    }
+
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/serializers/genbadge", ["exports", "ember-data"], function (_exports, _emberData) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = _emberData.default.JSONSerializer.extend({
+    normalizeFindRecordResponse(store, primaryModelClass, payload, id, requestType) {
+      // Change the payload to just the first genbadge object
+      // let new_payload = payload.genbadges[0];
       return this._super(store, primaryModelClass, new_payload, id, requestType);
     },
 
@@ -5862,6 +6376,7 @@
   var _default = _emberData.default.JSONSerializer.extend(_emberData.default.EmbeddedRecordsMixin, {
     // attrs: {
     //     badges: { embedded: 'always' },
+    //     genbadges: { embedded: 'always' },
     //     projects: { embedded: 'always' },
     //     profile: { embedded: 'always' },
     //     ratings: { embedded: 'always' }
@@ -5906,6 +6421,9 @@
   var _default = _emberData.default.JSONSerializer.extend(_emberData.default.EmbeddedRecordsMixin, {
     attrs: {
       badges: {
+        embedded: 'always'
+      },
+      genbadges: {
         embedded: 'always'
       },
       projects: {
@@ -5976,6 +6494,7 @@
     defaultProfileLogo: "assets/img/person.svg",
     defaultProjectLogo: "assets/img/briefcase.svg",
     defaultBadgeLogo: "assets/img/badge.svg",
+    defaultGenbadgeLogo: "assets/img/badge.svg",
     addButton: "assets/img/add-button.svg"
   });
 
@@ -6158,8 +6677,8 @@
                   },
                   response: true,
                   body: {
-                    "contacts": {
-                      "email": this.get('user').attributes.email
+                    "bio": {
+                      "status": "Undefined"
                     },
                     "id": 0
                   }
@@ -6320,13 +6839,13 @@
   const _programmingLanguages = ["CSharp", "VBSharp", "ObjectiveC", "CPlus", "Java", "HTMLCSS", "ASPNet", "HTML5", "jQuery", "Javascript", "ActionScript", "Nodejs", "Perl", "PHP", "Python", "Ruby"];
   const _spokenLanguages = ["Czech", "Danish", "Dutch", "English", "Estonian", "Finnish", "French", "German", "Hungarian", "Italian", "Japanese", "Korean", "Latvian", "Lithuanian", "Polish", "Portuguese", "Russian", "SimplifiedChinese", "Spanish", "Swedish", "Thai", "TraditionalChinese", "Turkish"];
   const _proficiencies = ["Architect", "Scripting", "Developer", "Administration", "ProjectManager"];
-  const _features = ["Voice", "DigitalMessaging", "DesktopClient", "Reporting", "BusinessOptimization", "CallRecording"];
+  const _features = ["Voice", "DigitalMessaging", "DesktopClient", "Reporting", "BusinessOptimization", "CallRecording", "WEM"];
   const _technologies = ["Azure", "GoogleCloud", "MySQL", "NoSQL", "iPhone", "Android", "Bots", "AIML", "Facebook", "Twitter", "WhatsApp", "VoIP", "SMS", "EMail", "SFCOM", "AWS"];
   const _regions = ["LATAM", "NA", "APAC", "EMEA"];
   const _countries = ["AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM", "AW", "AU", "AT", "AZ", "BS", "BH", "BD", "BB", "BY", "BE", "BZ", "BJ", "BM", "BT", "BO", "BQ", "BA", "BW", "BV", "BR", "IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD", "CK", "CR", "CI", "HR", "CU", "CW", "CY", "CZ", "DK", "DJ", "DM", "DO", "EC", "EG", "SV", "GQ", "ER", "EE", "ET", "FK", "FO", "FJ", "FI", "FR", "GF", "PF", "TF", "GA", "GM", "GE", "DE", "GH", "GI", "GR", "GL", "GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY", "HT", "HM", "VA", "HN", "HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IM", "IL", "IT", "JM", "JP", "JE", "JO", "KZ", "KE", "KI", "KP", "KR", "KW", "KG", "LA", "LV", "LB", "LS", "LR", "LY", "LI", "LT", "LU", "MO", "MK", "MG", "MW", "MY", "MV", "ML", "MT", "MH", "MQ", "MR", "MU", "YT", "MX", "FM", "MD", "MC", "MN", "ME", "MS", "MA", "MZ", "MM", "NA", "NR", "NP", "NL", "NC", "NZ", "NI", "NE", "NG", "NU", "NF", "MP", "NO", "OM", "PK", "PW", "PS", "PA", "PG", "PY", "PE", "PH", "PN", "PL", "PT", "PR", "QA", "RE", "RO", "RU", "RW", "BL", "SH", "KN", "LC", "MF", "PM", "VC", "WS", "SM", "ST", "SA", "SN", "RS", "SC", "SL", "SG", "SX", "SK", "SI", "SB", "SO", "ZA", "GS", "SS", "ES", "LK", "SD", "SR", "SJ", "SZ", "SE", "CH", "SY", "TW", "TJ", "TZ", "TH", "TL", "TG", "TK", "TO", "TT", "TN", "TR", "TM", "TC", "TV", "UG", "UA", "AE", "GB", "US", "UM", "UY", "UZ", "VU", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZW"];
-  const _userLookingFor = ["ContractWork", "FullTimeWork", "KnowledgeFelloes"];
+  const _userLookingFor = ["ContractWork", "FullTimeWork"];
   const _userStatuses = ["Undefined", "Available", "Busy"];
-  const _companyTypes = ["GenesysPartner", "ISV", "Contractor", "Other"];
+  const _companyTypes = ["GenesysPartner", "ISV", "Contractor", "GenesysEmployee", "Other"];
   const _projectStatuses = ["InProgress", "Completed"];
 
   var _default = Ember.Service.extend({
@@ -6404,19 +6923,31 @@
     store: Ember.inject.service(),
     searchService: Ember.inject.service(),
     environmentService: Ember.inject.service(),
+    ajax: Ember.inject.service(),
 
     init() {
       this._super(...arguments);
 
       this.set('searchResults', []);
+      this.set('currentPage', 1);
+      this.set('filterString', ""); // Total search result is automatically updated when query is called
+      // from the search-result adapter.
+
       this.set('totalSearchResults', 0);
-      this.set('filterString', "");
       let searchFilters = this.get('environmentService.search.searchFilters');
       let searchQueryAttributes = {};
+      let searchQueryConditions = {};
       searchFilters.forEach(sFilter => {
         searchQueryAttributes[sFilter.key] = [];
+        searchQueryConditions[sFilter.key] = sFilter.condition;
       });
       this.set('searchQuery', searchQueryAttributes);
+      this.set('searchQueryCond', searchQueryConditions);
+      this.set('resetRequested', 0);
+    },
+
+    relayResetToUIChilds() {
+      this.incrementProperty('resetRequested');
     },
 
     /**
@@ -6435,7 +6966,8 @@
             user: user,
             profile: user.profile,
             projects: user.projects,
-            badges: user.badges
+            badges: user.badges,
+            genbadges: user.genbadges
           };
           resolve(userInfo);
         }).catch(error => reject(error));
@@ -6448,6 +6980,7 @@
      */
     clearUserSearch() {
       this.get('searchResults').length = 0;
+      this.set('totalSearchResults', 0);
     },
 
     setFilterString(text) {
@@ -6455,12 +6988,12 @@
     },
 
     /**
-     * Querypublished users and append to current search results
-     * @param {int} from
-     * offset of where to start from the results
+     * Helper function to build the ES query body
+     * @param {int} from ES offset of results
      */
-    queryUsers(from) {
+    buildQueryBody(from) {
       let query = this.get('searchQuery');
+      let conditions = this.get('searchQueryCond');
       let body = {
         "query": {
           "bool": {
@@ -6476,14 +7009,35 @@
 
       searchFilters.forEach(sFilter => {
         if (query[sFilter.key] && query[sFilter.key].length > 0) {
+          let newFilter = {};
+          let newFilterArray = [];
+
+          if (conditions[sFilter.key] && conditions[sFilter.key] != null && conditions[sFilter.key].toUpperCase() === "OR") {
+            newFilter = {
+              "bool": {
+                "should": [],
+                "minimum_should_match": 1
+              }
+            };
+            newFilterArray = newFilter.bool.should;
+          } else {
+            newFilter = {
+              "bool": {
+                "must": []
+              }
+            };
+            newFilterArray = newFilter.bool.must;
+          }
+
           query[sFilter.key].forEach(val => {
             let key = "profile." + sFilter.path;
             let newEntry = {
               "match": {}
             };
             newEntry.match[key] = val;
-            mustArray.push(newEntry);
+            newFilterArray.push(newEntry);
           });
+          mustArray.push(newFilter);
         }
       });
       let filter = this.get('filterString'); // Add filter which is the searchtext from searchbar
@@ -6506,9 +7060,19 @@
         body.from = from;
       }
 
+      return body;
+    },
+
+    /**
+     * Querypublished users 
+     * @param {int} page 1-index page of results
+     */
+    queryUsers(page) {
+      if (!page) page = 1;
+      let body = this.buildQueryBody((page - 1) * this.get('environmentService.search.searchChunkSize'));
+      this.set('currentPage', page);
       return this.store.query('search-result', body).then(results => {
-        this.set('totalSearchResults', results.get('meta').total);
-        this.set('searchResults', this.get('searchResults').concat(results.toArray()));
+        this.set('searchResults', results.toArray());
       });
     }
 
@@ -6552,7 +7116,8 @@
         searchEsUrl: esUrl,
         // Chunk of search result to load. 
         // Initial and increments via 'Load More'
-        searchChunkSize: _environment.default.SEARCH_CHUNK_SIZE
+        searchChunkSize: _environment.default.SEARCH_CHUNK_SIZE // searchChunkSize: 3
+
       });
       this.set('contactUs', {
         email: _environment.default.CONTACT_US_EMAIL
@@ -6585,6 +7150,14 @@
 
     nameDescending(a, b) {
       return b.profile.bio.name.localeCompare(a.profile.bio.name);
+    },
+
+    userStatusAscending(a, b) {
+      return a.profile.bio.status.localeCompare(b.profile.bio.status);
+    },
+
+    userStatusDescending(a, b) {
+      return b.profile.bio.status.localeCompare(a.profile.bio.status);
     },
 
     projectsAscending(a, b) {
@@ -6675,6 +7248,14 @@
 
     sortByNameDescending() {
       this.set('currentSort', SORT.nameDescending);
+    },
+
+    sortByUserStatusAscending() {
+      this.set('currentSort', SORT.userStatusAscending);
+    },
+
+    sortByUserStatusDescending() {
+      this.set('currentSort', SORT.userStatusDescending);
     },
 
     sortByProjectsAscending() {
@@ -6934,8 +7515,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "LNmJf+8z",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"link\"],[11,\"rel\",\"stylesheet\"],[11,\"href\",\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css\"],[9],[10],[0,\"\\n\"],[1,[29,\"global/app-foundry-header\",null,[[\"navigateHome\",\"showSearchBar\",\"isShort\"],[\"navigateHome\",true,false]]],false],[0,\"\\n\"],[1,[23,\"outlet\"],false],[0,\"\\n\"],[1,[23,\"global/app-foundry-footer\"],false],[0,\"\\n\\n\"],[1,[23,\"generic/gdpr-cookie-alert\"],false]],\"hasEval\":false}",
+    "id": "VFFLNQUt",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"link\"],[11,\"rel\",\"stylesheet\"],[11,\"href\",\"https://use.fontawesome.com/releases/v5.11.2/css/all.css\"],[9],[10],[0,\"\\n\"],[1,[23,\"outlet\"],false],[0,\"\\n\"],[1,[23,\"global/app-foundry-footer\"],false],[0,\"\\n\\n\"],[1,[23,\"generic/gdpr-cookie-alert\"],false]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/application.hbs"
     }
@@ -6970,8 +7551,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "DQFpGdTm",
-    "block": "{\"symbols\":[],\"statements\":[[4,\"if\",[[25,[\"showSearchBar\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"home-hero-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"home-hero-inner-container\"],[9],[0,\"\\n            \"],[7,\"h1\"],[11,\"class\",\"hero-welcome\"],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.header.welcome\"],null],false],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"contentPanelTitle\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"home-hero-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"home-hero-inner-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"hero-welcome\"],[9],[0,\" \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"search-bar-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"hero-title\"],[9],[0,\"\\n                    \"],[1,[23,\"contentPanelTitle\"],false],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}]],\"hasEval\":false}",
+    "id": "Rmm8NWi/",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"home-hero-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"logo-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"index\"],null,{\"statements\":[[0,\"                \"],[7,\"img\"],[11,\"class\",\"logo\"],[11,\"src\",\"assets/img/beyond-logo-white.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[1,[23,\"global/login-widget\"],false],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"home-hero-inner-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"hero-title\"],[9],[0,\"\\n            Create\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"hero-subtitle\"],[9],[0,\"\\n            A network of CX talent with the expertise to drive a variety of projects and initiatives.\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            \"],[7,\"button\"],[11,\"class\",\"genesys-btn long white-border\"],[9],[0,\"\\n                Get Started\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/container/home-hero.hbs"
     }
@@ -7006,8 +7587,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "gsaA080y",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"badge-fields-container\"],[9],[0,\"\\n\\n    \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.badge.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"info-fields-container\"],[9],[0,\"\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L5:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.name\"],null],\"text\",\"name\",true]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L12:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.date\"],null],\"date\",\"date\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L19:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.url\"],null],\"text\",\"url\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L26:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.description\"],null],\"textarea\",\"description\",false]]],false],[0,\"\\n\\n    \"],[10],[0,\"\\n\\n\"],[10]],\"hasEval\":false}",
+    "id": "NIIEnpqm",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"badge-fields-container\"],[9],[0,\"\\n\\n    \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.badge.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"info-fields-container\"],[9],[0,\"\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L5:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.name\"],null],\"text\",\"name\",true]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L12:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.issuedAt\"],null],\"date\",\"issuedAt\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L19:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.issuer\"],null],\"text\",\"issuer\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L26:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.url\"],null],\"text\",\"url\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-badge/badge-fields.hbs' @ L33:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.badge.description\"],null],\"textarea\",\"description\",false]]],false],[0,\"\\n\\n    \"],[10],[0,\"\\n\\n\"],[10]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/edit-badge/badge-fields.hbs"
     }
@@ -7024,8 +7605,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "sRdzGNZM",
-    "block": "{\"symbols\":[\"modal\",\"form\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"position\"],[[25,[\"editBadgeShow\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null],\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/edit-badge/container.hbs' @ L7:C3) \"],null]],null,{\"statements\":[[7,\"span\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"newBadge\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.badge.new\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.badge.edit\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[7,\"br\"],[9],[10],[0,\"\\n\"],[7,\"i\"],[9],[7,\"small\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.disclaimerDevInProgress\"],null],false],[0,\")\"],[10],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/edit-badge/container.hbs' @ L18:C3) \"],null]],null,{\"statements\":[[0,\"\\n\"],[7,\"div\"],[11,\"class\",\"edit-badge-logo-container\"],[9],[0,\"\\n\"],[1,[29,\"generic/img-uploader-container\",null,[[\"origLogoUrl\",\"origLogoRepositoryUrl\",\"showEditButton\",\"newLogo\"],[[25,[\"changeset\",\"logoUrl\"]],[25,[\"logoRepositoryUrl\"]],true,[25,[\"newLogo\"]]]]],false],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"saveBadge\"],null],[25,[\"changeset\"]]]],{\"statements\":[[1,[29,\"edit-badge/badge-fields\",null,[[\"form\",\"model\",\"enums\",\"temps\"],[[24,2,[]],[25,[\"changeset\"]],[25,[\"enums\"]],[25,[\"temps\"]]]]],false],[0,\"\\n\\n\"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n    \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"    \"],[1,[29,\"t\",[\"devFoundry.components.badge.save\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"    \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null]]],{\"statements\":[[0,\"    \"],[1,[29,\"t\",[\"devFoundry.components.badge.cancel\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "FaFmmNwC",
+    "block": "{\"symbols\":[\"modal\",\"form\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"position\",\"class\"],[[25,[\"editBadgeShow\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null],\"center\",\"edit-badge-component\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/edit-badge/container.hbs' @ L8:C7) \"],null]],[[\"class\"],[\"modalHeader\"]],{\"statements\":[[0,\"        \"],[7,\"span\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"newBadge\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.badge.new\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.badge.edit\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"i\"],[9],[7,\"small\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.disclaimerDevInProgress\"],null],false],[0,\")\"],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/edit-badge/container.hbs' @ L19:C7) \"],null]],[[\"class\"],[\"modalBody\"]],{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"edit-badge-logo-container\"],[9],[0,\"\\n            \"],[1,[29,\"generic/img-uploader-container\",null,[[\"origLogoUrl\",\"origLogoRepositoryUrl\",\"showEditButton\",\"newLogo\"],[[25,[\"changeset\",\"logoUrl\"]],[25,[\"logoRepositoryUrl\"]],true,[25,[\"newLogo\"]]]]],false],[0,\"\\n        \"],[10],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"saveBadge\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"            \"],[1,[29,\"edit-badge/badge-fields\",null,[[\"form\",\"model\",\"enums\",\"temps\"],[[24,2,[]],[25,[\"changeset\"]],[25,[\"enums\"]],[25,[\"temps\"]]]]],false],[0,\"\\n\\n            \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n                \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.badge.save\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null]]],{\"statements\":[[0,\"                        \"],[1,[29,\"t\",[\"devFoundry.components.badge.cancel\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/edit-badge/container.hbs"
     }
@@ -7042,8 +7623,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "dJ6U1z8G",
-    "block": "{\"symbols\":[\"modal\",\"form\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"size\",\"position\"],[[25,[\"editProfile\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null],\"lg\",\"center\"]],{\"statements\":[[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/edit-profile/container.hbs' @ L9:C3) \"],null]],null,{\"statements\":[[7,\"span\"],[9],[0,\"\\n\"],[1,[29,\"t\",[\"devFoundry.components.profile.edit\"],null],false],[0,\"\\n\"],[7,\"br\"],[9],[10],[0,\"\\n\"],[7,\"i\"],[9],[7,\"small\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.disclaimerDevInProgress\"],null],false],[0,\")\"],[10],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/edit-profile/container.hbs' @ L16:C3) \"],null]],null,{\"statements\":[[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"saveProfile\"],null],[25,[\"changeset\"]]]],{\"statements\":[[1,[29,\"edit-profile/profile-fields\",null,[[\"form\",\"model\",\"enums\",\"temps\"],[[24,2,[]],[25,[\"changeset\"]],[25,[\"enums\"]],[25,[\"temps\"]]]]],false],[0,\"\\n\\n\"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[7,\"div\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"style\",\"float: right;\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.save\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null]]],{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.cancel\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"    \\n\"],[10],[0,\"\\n\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "xbP1rMaq",
+    "block": "{\"symbols\":[\"modal\",\"form\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"size\",\"position\",\"class\"],[[25,[\"editProfile\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null],\"lg\",\"center\",\"edit-profile-component\"]],{\"statements\":[[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/edit-profile/container.hbs' @ L10:C7) \"],null]],[[\"class\"],[\"modalHeader\"]],{\"statements\":[[0,\"        \"],[7,\"span\"],[9],[0,\"\\n            \"],[1,[29,\"t\",[\"devFoundry.components.profile.edit\"],null],false],[0,\"\\n            \"],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"i\"],[9],[7,\"small\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.disclaimerDevInProgress\"],null],false],[0,\")\"],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/edit-profile/container.hbs' @ L17:C7) \"],null]],[[\"class\"],[\"modalBody\"]],{\"statements\":[[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"saveProfile\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"            \"],[1,[29,\"edit-profile/profile-fields\",null,[[\"form\",\"model\",\"enums\",\"temps\"],[[24,2,[]],[25,[\"changeset\"]],[25,[\"enums\"]],[25,[\"temps\"]]]]],false],[0,\"\\n\\n\"],[0,\"            \"],[7,\"hr\"],[9],[10],[0,\"\\n            \"],[7,\"div\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"style\",\"float: right;\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.save\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null]]],{\"statements\":[[0,\"                            \"],[1,[29,\"t\",[\"devFoundry.components.profile.cancel\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"    \\n            \"],[10],[0,\"\\n\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/edit-profile/container.hbs"
     }
@@ -7078,8 +7659,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "Kv+783FJ",
-    "block": "{\"symbols\":[\"el\",\"el\",\"el\",\"el\",\"el\",\"el\",\"el\"],\"statements\":[[7,\"div\"],[11,\"class\",\"profile-fields-container\"],[9],[0,\"\\n\\n    \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"bio-fields-container\"],[9],[0,\"\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L5:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.name\"],null],\"text\",\"bio.name\",true]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L12:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.company\"],null],\"text\",\"bio.company\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L19:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.position\"],null],\"text\",\"bio.position\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L26:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.website\"],null],\"text\",\"bio.website\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.bio.type\",\"devFoundry.components.enums.companyTypes\",\"profile-company-type\",\"company-type-container\",\"select\",[25,[\"enums\",\"enumCompanyTypes\"]],[25,[\"model\",\"bio\",\"type\"]],[25,[\"temps\",\"tempCompanyType\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n        \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.bio.status\",\"devFoundry.components.enums.userStatuses\",\"profile-user-status\",\"user-status-container\",\"select\",[25,[\"enums\",\"enumUserStatuses\"]],[25,[\"model\",\"bio\",\"status\"]],[25,[\"temps\",\"tempUserStatus\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n        \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.bio.lookingFor\",\"devFoundry.components.enums.userLookingFor\",\"profile-user-looking-for\",\"user-looking-for-container\",\"checkbox\",[25,[\"enums\",\"enumUserLookingFor\"]],[25,[\"model\",\"bio\",\"lookingFor\"]],[25,[\"temps\",\"tempUserLookingFor\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L69:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.description\"],null],\"textarea\",\"bio.description\",false]]],false],[0,\"\\n    \"],[10],[0,\"\\n\\n    \"],[7,\"hr\"],[9],[10],[0,\"\\n        \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.label\"],null],false],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"location-fields-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"location-container\"],[9],[0,\"\\n                \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L81:C18) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\",\"class\"],[[29,\"t\",[\"devFoundry.components.profile.location.postalCode\"],null],\"text\",\"location.postalCode\",false,\"profile-postal-code\"]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.location.country\",\"devFoundry.components.enums.countries\",\"profile-country\",\"country-container\",\"select\",[25,[\"enums\",\"enumCountries\"]],[25,[\"model\",\"location\",\"country\"]],[25,[\"temps\",\"tempCountry\"]],[25,[\"form\"]]]]],false],[0,\"\\n            \"],[10],[0,\"            \\n\\n\"],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"region-and-language-container\"],[9],[0,\"\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.location.regions\",\"devFoundry.components.enums.regions\",\"profile-regions\",\"regions-container\",\"checkbox\",[25,[\"enums\",\"enumRegions\"]],[25,[\"model\",\"location\",\"regions\"]],[25,[\"temps\",\"tempRegions\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.location.spokenLanguages\",\"devFoundry.components.enums.spokenLanguages\",\"profile-spoken-languages\",\"spoken-languages-container\",\"checkbox\",[25,[\"enums\",\"enumSpokenLanguages\"]],[25,[\"model\",\"location\",\"spokenLanguages\"]],[25,[\"temps\",\"tempSpokenLanguages\"]],[25,[\"form\"]]]]],false],[0,\"\\n            \"],[10],[0,\"\\n            \\n        \"],[10],[0,\"\\n    \"],[7,\"hr\"],[9],[10],[0,\"\\n\\n    \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.contacts.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"contacts-fields-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"email-phone-container\"],[9],[0,\"\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L148:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.contacts.email\"],null],\"text\",\"contacts.email\",false]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L155:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.contacts.phone\"],null],\"text\",\"contacts.phone\",false]]],false],[0,\"\\n        \"],[10],[0,\"\\n        \\n        \"],[7,\"div\"],[11,\"class\",\"links-container\"],[9],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L164:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.community\",[29,\"t\",[\"devFoundry.components.profile.contacts.community\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,7,[\"id\"]],[24,7,[\"value\"]],\"Genesys Community Id\",\"https://community.genesys.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[7]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L178:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.facebook\",[29,\"t\",[\"devFoundry.components.profile.contacts.facebook\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,6,[\"id\"]],[24,6,[\"value\"]],\"Facebook Id\",\"http://www.facebook.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[6]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L192:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.twitter\",[29,\"t\",[\"devFoundry.components.profile.contacts.twitter\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,5,[\"id\"]],[24,5,[\"value\"]],\"Twitter Id\",\"http://twitter.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L206:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.linkedin\",[29,\"t\",[\"devFoundry.components.profile.contacts.linkedin\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,4,[\"id\"]],[24,4,[\"value\"]],\"LinkedIn Id\",\"http://www.linkedIn.com/in/\"]]],false],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L220:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.github\",[29,\"t\",[\"devFoundry.components.profile.contacts.github\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,3,[\"id\"]],[24,3,[\"value\"]],\"Github Username\",\"http://www.github.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L234:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.bitbucket\",[29,\"t\",[\"devFoundry.components.profile.contacts.bitbucket\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,2,[\"id\"]],[24,2,[\"value\"]],\"Bitbucket Username\",\"http://bitbucket.org/\"]]],false],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L248:C15) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.whatsapp\",[29,\"t\",[\"devFoundry.components.profile.contacts.whatsapp\"],null],false]],{\"statements\":[[0,\"                \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,1,[\"id\"]],[24,1,[\"value\"]],\"WhatsApp Id\",\"http://wa.me/\"]]],false],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"        \"],[10],[0,\"\\n        \\n    \"],[10],[0,\"\\n\\n    \"],[7,\"hr\"],[9],[10],[0,\"\\n    \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"skills-fields-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"technical-skills-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"genesys-skills-container\"],[9],[0,\"\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.genesysPlatforms\",\"devFoundry.components.enums.genesysPlatforms\",\"profile-genesys-platforms\",\"genesys-platforms-container\",\"checkbox\",[25,[\"enums\",\"enumGenesysPlatforms\"]],[25,[\"model\",\"skills\",\"genesysPlatforms\"]],[25,[\"temps\",\"tempGenesysPlatforms\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.features\",\"devFoundry.components.enums.features\",\"profile-features\",\"features-container\",\"checkbox\",[25,[\"enums\",\"enumFeatures\"]],[25,[\"model\",\"skills\",\"features\"]],[25,[\"temps\",\"tempFeatures\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.proficiencies\",\"devFoundry.components.enums.proficiencies\",\"profile-proficiencies\",\"proficiencies-container\",\"checkbox\",[25,[\"enums\",\"enumProficiencies\"]],[25,[\"model\",\"skills\",\"proficiencies\"]],[25,[\"temps\",\"tempProficiencies\"]],[25,[\"form\"]]]]],false],[0,\"\\n            \"],[10],[0,\"\\n\\n            \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.programmingLanguages\",\"devFoundry.components.enums.programmingLanguages\",\"profile-programming-languages\",\"programming-languages-container\",\"checkbox\",[25,[\"enums\",\"enumProgrammingLanguages\"]],[25,[\"model\",\"skills\",\"programmingLanguages\"]],[25,[\"temps\",\"tempProgrammingLanguages\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n            \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.technologies\",\"devFoundry.components.enums.technologies\",\"profile-technologies\",\"technologies-container\",\"checkbox\",[25,[\"enums\",\"enumTechnologies\"]],[25,[\"model\",\"skills\",\"technologies\"]],[25,[\"temps\",\"tempTechnologies\"]],[25,[\"form\"]]]]],false],[0,\"\\n        \"],[10],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L332:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.skills.other.knowledge\"],null],\"text\",\"skills.other.knowledge\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L339:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.skills.other.industryKnowledge\"],null],\"text\",\"skills.other.industryKnowledge\",false]]],false],[0,\"\\n\\n        \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L346:C10) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.skills.other.certifications\"],null],\"text\",\"skills.other.certifications\",false]]],false],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
+    "id": "DW4KblKi",
+    "block": "{\"symbols\":[\"el\",\"el\",\"el\",\"el\",\"el\",\"el\",\"el\"],\"statements\":[[7,\"div\"],[11,\"class\",\"profile-fields-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"currentPage\"]],1],null]],null,{\"statements\":[[0,\"        \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.label\"],null],false],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"bio-fields-container\"],[9],[0,\"\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L5:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.name\"],null],\"text\",\"bio.name\",true]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L12:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.company\"],null],\"text\",\"bio.company\",false]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L19:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.position\"],null],\"text\",\"bio.position\",false]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L26:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.website\"],null],\"text\",\"bio.website\",false]]],false],[0,\"\\n\\n            \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.bio.type\",\"devFoundry.components.enums.companyTypes\",\"profile-company-type\",\"company-type-container\",\"select\",[25,[\"enums\",\"enumCompanyTypes\"]],[25,[\"model\",\"bio\",\"type\"]],[25,[\"temps\",\"tempCompanyType\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n            \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.bio.status\",\"devFoundry.components.enums.userStatuses\",\"profile-user-status\",\"user-status-container\",\"select\",[25,[\"enums\",\"enumUserStatuses\"]],[25,[\"model\",\"bio\",\"status\"]],[25,[\"temps\",\"tempUserStatus\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n            \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.bio.lookingFor\",\"devFoundry.components.enums.userLookingFor\",\"profile-user-looking-for\",\"user-looking-for-container\",\"checkbox\",[25,[\"enums\",\"enumUserLookingFor\"]],[25,[\"model\",\"bio\",\"lookingFor\"]],[25,[\"temps\",\"tempUserLookingFor\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L69:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.bio.description\"],null],\"textarea\",\"bio.description\",false]]],false],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"currentPage\"]],2],null]],null,{\"statements\":[[0,\"        \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.label\"],null],false],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"location-fields-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"location-container\"],[9],[0,\"\\n                \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L82:C18) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\",\"class\"],[[29,\"t\",[\"devFoundry.components.profile.location.postalCode\"],null],\"text\",\"location.postalCode\",false,\"profile-postal-code\"]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.location.country\",\"devFoundry.components.enums.countries\",\"profile-country\",\"country-container\",\"select\",[25,[\"enums\",\"enumCountries\"]],[25,[\"model\",\"location\",\"country\"]],[25,[\"temps\",\"tempCountry\"]],[25,[\"form\"]]]]],false],[0,\"\\n            \"],[10],[0,\"            \\n\\n\"],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"region-and-language-container\"],[9],[0,\"\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.location.regions\",\"devFoundry.components.enums.regions\",\"profile-regions\",\"regions-container\",\"checkbox\",[25,[\"enums\",\"enumRegions\"]],[25,[\"model\",\"location\",\"regions\"]],[25,[\"temps\",\"tempRegions\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.location.spokenLanguages\",\"devFoundry.components.enums.spokenLanguages\",\"profile-spoken-languages\",\"spoken-languages-container\",\"checkbox\",[25,[\"enums\",\"enumSpokenLanguages\"]],[25,[\"model\",\"location\",\"spokenLanguages\"]],[25,[\"temps\",\"tempSpokenLanguages\"]],[25,[\"form\"]]]]],false],[0,\"\\n            \"],[10],[0,\"\\n            \\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"currentPage\"]],3],null]],null,{\"statements\":[[0,\"        \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.contacts.label\"],null],false],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"contacts-fields-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"email-phone-container\"],[9],[0,\"\\n                \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L150:C18) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.contacts.email\"],null],\"text\",\"contacts.email\",false]]],false],[0,\"\\n\\n                \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L157:C18) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\"],[[29,\"t\",[\"devFoundry.components.profile.contacts.phone\"],null],\"text\",\"contacts.phone\",false]]],false],[0,\"\\n            \"],[10],[0,\"\\n            \\n            \"],[7,\"div\"],[11,\"class\",\"links-container\"],[9],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L166:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.community\",[29,\"t\",[\"devFoundry.components.profile.contacts.community\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,7,[\"id\"]],[24,7,[\"value\"]],\"Genesys Community Id\",\"https://community.genesys.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[7]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L180:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.facebook\",[29,\"t\",[\"devFoundry.components.profile.contacts.facebook\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,6,[\"id\"]],[24,6,[\"value\"]],\"Facebook Id\",\"http://www.facebook.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[6]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L194:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.twitter\",[29,\"t\",[\"devFoundry.components.profile.contacts.twitter\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,5,[\"id\"]],[24,5,[\"value\"]],\"Twitter Id\",\"http://twitter.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L208:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.linkedin\",[29,\"t\",[\"devFoundry.components.profile.contacts.linkedin\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,4,[\"id\"]],[24,4,[\"value\"]],\"LinkedIn Id\",\"http://www.linkedIn.com/in/\"]]],false],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L222:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.github\",[29,\"t\",[\"devFoundry.components.profile.contacts.github\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,3,[\"id\"]],[24,3,[\"value\"]],\"Github Username\",\"http://www.github.com/\"]]],false],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L236:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.bitbucket\",[29,\"t\",[\"devFoundry.components.profile.contacts.bitbucket\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,2,[\"id\"]],[24,2,[\"value\"]],\"Bitbucket Username\",\"http://bitbucket.org/\"]]],false],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L250:C19) \"],null]],[[\"property\",\"label\",\"required\"],[\"contacts.whatsapp\",[29,\"t\",[\"devFoundry.components.profile.contacts.whatsapp\"],null],false]],{\"statements\":[[0,\"                    \"],[1,[29,\"edit-profile/prepended-input\",null,[[\"elId\",\"value\",\"placeholder\",\"prefix\"],[[24,1,[\"id\"]],[24,1,[\"value\"]],\"WhatsApp Id\",\"http://wa.me/\"]]],false],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"currentPage\"]],4],null]],null,{\"statements\":[[0,\"        \"],[7,\"h5\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.label\"],null],false],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"skills-fields-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"technical-skills-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"genesys-skills-container\"],[9],[0,\"\\n                    \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.genesysPlatforms\",\"devFoundry.components.enums.genesysPlatforms\",\"profile-genesys-platforms\",\"genesys-platforms-container\",\"checkbox\",[25,[\"enums\",\"enumGenesysPlatforms\"]],[25,[\"model\",\"skills\",\"genesysPlatforms\"]],[25,[\"temps\",\"tempGenesysPlatforms\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                    \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.features\",\"devFoundry.components.enums.features\",\"profile-features\",\"features-container\",\"checkbox\",[25,[\"enums\",\"enumFeatures\"]],[25,[\"model\",\"skills\",\"features\"]],[25,[\"temps\",\"tempFeatures\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                    \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.proficiencies\",\"devFoundry.components.enums.proficiencies\",\"profile-proficiencies\",\"proficiencies-container\",\"checkbox\",[25,[\"enums\",\"enumProficiencies\"]],[25,[\"model\",\"skills\",\"proficiencies\"]],[25,[\"temps\",\"tempProficiencies\"]],[25,[\"form\"]]]]],false],[0,\"\\n                \"],[10],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.programmingLanguages\",\"devFoundry.components.enums.programmingLanguages\",\"profile-programming-languages\",\"programming-languages-container\",\"checkbox\",[25,[\"enums\",\"enumProgrammingLanguages\"]],[25,[\"model\",\"skills\",\"programmingLanguages\"]],[25,[\"temps\",\"tempProgrammingLanguages\"]],[25,[\"form\"]]]]],false],[0,\"\\n\\n                \"],[1,[29,\"generic/enum-selection-container\",null,[[\"prmLanguagePath\",\"prmEnumLanguagePath\",\"prmEnumSelectionContainerClass\",\"prmEnumSelectionClass\",\"prmSelectionType\",\"prmEnum\",\"prmCurrentModel\",\"prmTemporarySelected\",\"form\"],[\"devFoundry.components.profile.skills.technologies\",\"devFoundry.components.enums.technologies\",\"profile-technologies\",\"technologies-container\",\"checkbox\",[25,[\"enums\",\"enumTechnologies\"]],[25,[\"model\",\"skills\",\"technologies\"]],[25,[\"temps\",\"tempTechnologies\"]],[25,[\"form\"]]]]],false],[0,\"\\n            \"],[10],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L335:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\",\"class\"],[[29,\"t\",[\"devFoundry.components.profile.skills.other.knowledge\"],null],\"text\",\"skills.other.knowledge\",false,\"other-form-group\"]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L343:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\",\"class\"],[[29,\"t\",[\"devFoundry.components.profile.skills.other.industryKnowledge\"],null],\"text\",\"skills.other.industryKnowledge\",false,\"other-form-group\"]]],false],[0,\"\\n\\n            \"],[1,[29,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[25,[\"form\",\"element\"]],\"expected `form.element` to be a contextual component but found a string. Did you mean `(component form.element)`? ('developer-network/templates/components/edit-profile/profile-fields.hbs' @ L351:C14) \"],null]],[[\"label\",\"controlType\",\"property\",\"required\",\"class\"],[[29,\"t\",[\"devFoundry.components.profile.skills.other.certifications\"],null],\"text\",\"skills.other.certifications\",false,\"other-form-group\"]]],false],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n    \"],[1,[29,\"filter-profile/pagination\",null,[[\"pageCount\",\"currentPage\",\"goToPage\",\"nextPage\",\"prevPage\"],[[25,[\"pageCount\"]],[25,[\"currentPage\"]],[29,\"action\",[[24,0,[]],\"goToPage\"],null],[29,\"action\",[[24,0,[]],\"nextPage\"],null],[29,\"action\",[[24,0,[]],\"prevPage\"],null]]]],false],[0,\"\\n\"],[10]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/edit-profile/profile-fields.hbs"
     }
@@ -7096,8 +7677,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "ZoLmXCGy",
-    "block": "{\"symbols\":[\"modal\",\"form\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"size\",\"position\"],[[25,[\"editProjectShow\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null],\"lg\",\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/edit-project/container.hbs' @ L8:C3) \"],null]],null,{\"statements\":[[7,\"span\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"newProject\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.project.new\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.project.edit\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[7,\"br\"],[9],[10],[0,\"\\n\"],[7,\"i\"],[9],[7,\"small\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.disclaimerDevInProgress\"],null],false],[0,\")\"],[10],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/edit-project/container.hbs' @ L19:C3) \"],null]],null,{\"statements\":[[0,\"\\n\"],[7,\"div\"],[11,\"class\",\"edit-project-logo-container\"],[9],[0,\"\\n\"],[1,[29,\"generic/img-uploader-container\",null,[[\"origLogoUrl\",\"origLogoRepositoryUrl\",\"showEditButton\",\"newLogo\"],[[25,[\"changeset\",\"logoUrl\"]],[25,[\"logoRepositoryUrl\"]],true,[25,[\"newLogo\"]]]]],false],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"saveProject\"],null],[25,[\"changeset\"]]]],{\"statements\":[[1,[29,\"edit-project/project-fields\",null,[[\"form\",\"model\",\"enums\",\"temps\"],[[24,2,[]],[25,[\"changeset\"]],[25,[\"enums\"]],[25,[\"temps\"]]]]],false],[0,\"\\n\\n\\n\\n\"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n    \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"    \"],[1,[29,\"t\",[\"devFoundry.components.project.save\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"    \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null]]],{\"statements\":[[0,\"    \"],[1,[29,\"t\",[\"devFoundry.components.project.cancel\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "q93B/Zcv",
+    "block": "{\"symbols\":[\"modal\",\"form\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"size\",\"position\",\"class\"],[[25,[\"editProjectShow\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null],\"lg\",\"center\",\"edit-profile-component\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/edit-project/container.hbs' @ L9:C7) \"],null]],[[\"class\"],[\"modalHeader\"]],{\"statements\":[[0,\"        \"],[7,\"span\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"newProject\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.project.new\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.project.edit\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"i\"],[9],[7,\"small\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.disclaimerDevInProgress\"],null],false],[0,\")\"],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/edit-project/container.hbs' @ L20:C7) \"],null]],[[\"class\"],[\"modalBody\"]],{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"edit-project-logo-container\"],[9],[0,\"\\n        \"],[1,[29,\"generic/img-uploader-container\",null,[[\"origLogoUrl\",\"origLogoRepositoryUrl\",\"showEditButton\",\"newLogo\"],[[25,[\"changeset\",\"logoUrl\"]],[25,[\"logoRepositoryUrl\"]],true,[25,[\"newLogo\"]]]]],false],[0,\"\\n        \"],[10],[0,\"\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"saveProject\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"            \"],[1,[29,\"edit-project/project-fields\",null,[[\"form\",\"model\",\"enums\",\"temps\"],[[24,2,[]],[25,[\"changeset\"]],[25,[\"enums\"]],[25,[\"temps\"]]]]],false],[0,\"\\n\\n            \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n                \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.project.save\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancel\"],null]]],{\"statements\":[[0,\"                        \"],[1,[29,\"t\",[\"devFoundry.components.project.cancel\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/edit-project/container.hbs"
     }
@@ -7176,8 +7757,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "8iyd0ob7",
-    "block": "{\"symbols\":[\"cbOption\"],\"statements\":[[7,\"button\"],[12,\"id\",[29,\"concat\",[\"collapsible-\",[25,[\"cbData\"]]],null]],[11,\"class\",\"filter-collapsible\"],[9],[0,\"\\n    \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.filterCategory.\",[25,[\"categoryName\"]]],null]],null],false],[0,\"\\n\"],[10],[0,\"\\n\"],[7,\"div\"],[11,\"class\",\"filter-category-content\"],[12,\"name\",[23,\"cbData\"]],[9],[0,\"\\n\\n    \"],[7,\"div\"],[11,\"class\",\"filter-category-header\"],[9],[0,\"\\n        \"],[7,\"a\"],[11,\"href\",\"\"],[9],[1,[29,\"t\",[\"devFoundry.components.filterCategory.showAll\"],null],false],[3,\"action\",[[24,0,[]],\"showAll\"]],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"checkboxes\"],[9],[0,\"\\n\"],[4,\"each\",[[25,[\"cbOptions\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"filter-profile/filter-entry\",null,[[\"text\",\"category\",\"enumKey\",\"addFilterOption\",\"removeFilterOption\",\"setOnly\"],[[24,1,[]],[25,[\"cbData\"]],[25,[\"cbEnumKey\"]],[29,\"action\",[[24,0,[]],\"addFilterOption\",[24,1,[]]],null],[29,\"action\",[[24,0,[]],\"removeFilterOption\",[24,1,[]]],null],[29,\"action\",[[24,0,[]],\"setOnlyFilterOption\",[24,1,[]]],null]]]],false],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"    \"],[10],[0,\"\\n\"],[10],[0,\" \"]],\"hasEval\":false}",
+    "id": "kcrek/gW",
+    "block": "{\"symbols\":[\"cbOption\",\"bg\"],\"statements\":[[7,\"button\"],[12,\"id\",[29,\"concat\",[\"collapsible-\",[25,[\"cbData\"]]],null]],[11,\"class\",\"filter-collapsible\"],[9],[0,\"\\n    \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.filterCategory.\",[25,[\"categoryName\"]]],null]],null],false],[0,\"\\n\"],[10],[0,\"\\n\"],[7,\"div\"],[11,\"class\",\"filter-category-content\"],[12,\"name\",[23,\"cbData\"]],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"filter-category-header\"],[9],[0,\"\\n        \"],[7,\"a\"],[11,\"href\",\"\"],[9],[1,[29,\"t\",[\"devFoundry.components.filterCategory.showAll\"],null],false],[3,\"action\",[[24,0,[]],\"showAll\"]],[10],[0,\"\\n        \\n        \"],[7,\"div\"],[11,\"class\",\"condition-container\"],[9],[0,\"\\n            \"],[7,\"span\"],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.filterCategory.usingCondition\"],null],false],[0,\": \\n            \"],[10],[0,\"\\n            \\n            \"],[5,\"bs-button-group\",[[13,\"class\",\"btn-group-sm condition-toggle\"]],[[\"@id\",\"@name\",\"@value\",\"@type\",\"@onChange\"],[[29,\"concat\",[\"genesys-toggle-\",[25,[\"cbData\"]]],null],[29,\"concat\",[\"genesys-toggle-\",[25,[\"cbData\"]],\"-\",[25,[\"resetTag\"]]],null],[23,\"categoryConditionToggle\"],\"radio\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"categoryCondition\"]]],null]],null]]],{\"statements\":[[0,\"\\n                \"],[6,[24,2,[\"button\"]],[[13,\"class\",\"btn-AND\"]],[[\"@value\"],[\"AND\"]],{\"statements\":[[0,\"\\n                    \"],[1,[29,\"t\",[\"devFoundry.components.filterCategory.AND\"],null],false],[0,\"\\n                \"]],\"parameters\":[]}],[0,\"\\n                \"],[6,[24,2,[\"button\"]],[[13,\"class\",\"btn-OR\"]],[[\"@value\"],[\"OR\"]],{\"statements\":[[0,\"\\n                    \"],[1,[29,\"t\",[\"devFoundry.components.filterCategory.OR\"],null],false],[0,\"\\n                \"]],\"parameters\":[]}],[0,\"\\n        \"]],\"parameters\":[2]}],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"checkboxes\"],[9],[0,\"\\n\"],[4,\"each\",[[25,[\"cbOptions\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"filter-profile/filter-entry\",null,[[\"text\",\"category\",\"enumKey\",\"addFilterOption\",\"removeFilterOption\",\"setOnly\"],[[24,1,[]],[25,[\"cbData\"]],[25,[\"cbEnumKey\"]],[29,\"action\",[[24,0,[]],\"addFilterOption\",[24,1,[]]],null],[29,\"action\",[[24,0,[]],\"removeFilterOption\",[24,1,[]]],null],[29,\"action\",[[24,0,[]],\"setOnlyFilterOption\",[24,1,[]]],null]]]],false],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"    \"],[10],[0,\"\\n\"],[10],[0,\" \"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/filter-profile/filter-category.hbs"
     }
@@ -7212,10 +7793,28 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "FaPs2C4Y",
-    "block": "{\"symbols\":[\"filter\"],\"statements\":[[7,\"div\"],[11,\"class\",\"filter-panel search-options\"],[9],[0,\"\\n    \\n\"],[4,\"each\",[[25,[\"enabledFilters\"]]],null,{\"statements\":[[0,\"        \"],[1,[29,\"filter-profile/filter-category\",null,[[\"categoryName\",\"cbData\"],[[24,1,[]],[24,1,[]]]]],false],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"genesys-btn-group\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"onClick\"],[\"default\",[29,\"action\",[[24,0,[]],\"resetFilters\"],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.filterPanel.resetFilters\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"onClick\"],[\"default\",[29,\"action\",[[24,0,[]],\"clickSearch\"],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.filterPanel.applyFilters\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
+    "id": "FijK4/FB",
+    "block": "{\"symbols\":[\"filter\"],\"statements\":[[7,\"div\"],[9],[0,\"\\n    \"],[7,\"h4\"],[9],[0,\"Filter By:\"],[10],[0,\"\\n\"],[10],[0,\"\\n\"],[7,\"div\"],[11,\"class\",\"filter-panel search-options\"],[9],[0,\"\\n    \\n\"],[4,\"each\",[[25,[\"enabledFilters\"]]],null,{\"statements\":[[0,\"        \"],[1,[29,\"filter-profile/filter-category\",null,[[\"categoryName\",\"cbData\"],[[24,1,[\"key\"]],[24,1,[\"key\"]]]]],false],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"filter-panel-controls\"],[9],[0,\"\\n        \"],[7,\"button\"],[11,\"class\",\"genesys-btn orange medium\"],[11,\"style\",\"margin-right: 16px;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"clickSearch\"],null]],[9],[0,\"\\n            \"],[1,[29,\"t\",[\"devFoundry.components.filterPanel.applyFilters\"],null],false],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"button\"],[11,\"class\",\"genesys-btn medium\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"resetFilters\"],null]],[9],[0,\"\\n            \"],[1,[29,\"t\",[\"devFoundry.components.filterPanel.resetFilters\"],null],false],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/filter-profile/filter-panel.hbs"
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/templates/components/filter-profile/pagination", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.HTMLBars.template({
+    "id": "rc9knEAh",
+    "block": "{\"symbols\":[\"page\"],\"statements\":[[7,\"div\"],[11,\"class\",\"pagination-controls\"],[9],[0,\"\\n    \"],[7,\"span\"],[11,\"class\",\"nav-button\"],[9],[0,\"\\n        < Prev\\n    \"],[3,\"action\",[[24,0,[]],[25,[\"prevPage\"]]]],[10],[0,\"\\n\\n\"],[4,\"each\",[[25,[\"pages\"]]],null,{\"statements\":[[0,\"        \"],[7,\"span\"],[12,\"class\",[30,[\"page-number \\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"currentPage\"]],[24,1,[]]],null],\"selected\"],null],\"\\n            \"]]],[9],[0,\"\\n            \"],[1,[24,1,[]],false],[0,\"\\n        \"],[3,\"action\",[[24,0,[]],[25,[\"goToPage\"]],[24,1,[]]]],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"\\n    \"],[7,\"span\"],[11,\"class\",\"nav-button\"],[9],[0,\"\\n        Next >\\n    \"],[3,\"action\",[[24,0,[]],[25,[\"nextPage\"]]]],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
+    "meta": {
+      "moduleName": "developer-network/templates/components/filter-profile/pagination.hbs"
     }
   });
 
@@ -7230,10 +7829,28 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "8HXWE/ea",
-    "block": "{\"symbols\":[\"platform\"],\"statements\":[[4,\"if\",[[25,[\"isVisible\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"card-container\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"profile\",[25,[\"user\",\"id\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"card-icon-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"user\",\"profile\",\"logoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[29,\"concat\",[[25,[\"user\",\"logoRepositoryUrl\"]],[25,[\"user\",\"profile\",\"logoUrl\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"                \"],[7,\"div\"],[11,\"class\",\"card-userStatus\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"status\"]],\"Available\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-circle\"],[11,\"style\",\"color:green;\"],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userStatuses.\",[25,[\"user\",\"profile\",\"bio\",\"status\"]]],null]],null],\"top\"]]],false],[10],[0,\"                        \\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"status\"]],\"Busy\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-circle\"],[11,\"style\",\"color:red;\"],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userStatuses.\",[25,[\"user\",\"profile\",\"bio\",\"status\"]]],null]],null],\"top\"]]],false],[10],[0,\"                        \\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-circle\"],[11,\"style\",\"color:gray;\"],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.enums.userStatuses.Undefined\"],null],\"top\"]]],false],[10],[0,\"                        \\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}],[0,\"                \"],[10],[0,\"                \\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"card-title-desc-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-title\"],[9],[0,\"\\n                    \"],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"name\"]],20],null],false],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-position\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"position\"]],20],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-programming\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[4,\"if\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]],20],null],false]],\"parameters\":[]},null],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-spoken\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[4,\"if\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]],20],null],false]],\"parameters\":[]},null],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"platform-container\"],[9],[0,\"\\n\"],[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureCloud\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/purecloud.png\"],[11,\"title\",\"PureCloud\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureConnect\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureconnect.png\"],[11,\"title\",\"PureConnect\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureengage.png\"],[11,\"title\",\"PureEngage\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[1]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
+    "id": "MwSXJ5TJ",
+    "block": "{\"symbols\":[\"platform\",\"lang\",\"lang\"],\"statements\":[[4,\"if\",[[25,[\"isVisible\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"card-container\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"profile\",[25,[\"user\",\"id\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"card-icon-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"user\",\"profile\",\"logoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[29,\"concat\",[[25,[\"user\",\"logoRepositoryUrl\"]],[25,[\"user\",\"profile\",\"logoUrl\"]]],null]],[12,\"class\",[30,[\"profile-image \",[25,[\"user\",\"profile\",\"bio\",\"status\"]]]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],[12,\"class\",[30,[\"profile-image \",[25,[\"user\",\"profile\",\"bio\",\"status\"]]]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"card-title-desc-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-title\"],[9],[0,\"\\n                    \"],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"name\"]],20],null],false],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-position\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"position\"]],20],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-programming\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                           \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-spoken\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[4,\"each\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"span\"],[9],[1,[24,2,[]],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"platform-container\"],[9],[0,\"\\n\"],[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureCloud\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/purecloud.png\"],[11,\"title\",\"PureCloud\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureConnect\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureconnect.png\"],[11,\"title\",\"PureConnect\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureengage.png\"],[11,\"title\",\"PureEngage\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[1]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/filter-profile/profile-card.hbs"
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/templates/components/filter-profile/search-bar", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.HTMLBars.template({
+    "id": "/lBSeKgx",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"sort-panel\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"search-bar-container\"],[9],[0,\"\\n        \"],[7,\"i\"],[12,\"class\",[29,\"if\",[[25,[\"mobileFilterShown\"]],\"fa fa-filter filter-icon pressed\",\"fa fa-filter filter-icon\"],null]],[9],[0,\"\\n        \"],[3,\"action\",[[24,0,[]],\"clickFilterButton\"]],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"search-bar\"],[9],[0,\"\\n\\n            \"],[1,[29,\"input\",null,[[\"value\",\"placeholder\",\"key-up\"],[[25,[\"searchValue\"]],[29,\"t\",[\"devFoundry.header.search\"],null],[29,\"action\",[[24,0,[]],\"handleSearch\",[25,[\"searchValue\"]]],null]]]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"shouldDisplayX\"]]],null,{\"statements\":[[0,\"                \"],[7,\"i\"],[11,\"class\",\"fa fa-times search-icon\"],[9],[3,\"action\",[[24,0,[]],\"clearSearch\"]],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[7,\"i\"],[11,\"class\",\"fa fa-search search-icon\"],[9],[3,\"action\",[[24,0,[]],\"handleSearch\",[25,[\"searchValue\"]]]],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"sort-outer-container\"],[9],[0,\"\\n        \"],[7,\"span\"],[11,\"class\",\"arrange-by\"],[9],[0,\"Arrange by:\"],[10],[0,\"\\n        \"],[7,\"span\"],[11,\"class\",\"sort-container\"],[9],[0,\"\\n            \"],[7,\"span\"],[12,\"class\",[30,[\"sorting-category\\n                     \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"nameAscending\"],null],\"active\"],null],\"    \\n                     \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"nameDescending\"],null],\"active\"],null],\"    \\n                \"]]],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.sort.name\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"nameAscending\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"src\",\"assets/img/dropdown-arrow-up.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"src\",\"assets/img/dropdown-arrow.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[3,\"action\",[[24,0,[]],\"sortNameClick\"]],[10],[0,\"\\n            \"],[7,\"span\"],[12,\"class\",[30,[\"sorting-category\\n                     \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"userStatusAscending\"],null],\"active\"],null],\"    \\n                     \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"userStatusDescending\"],null],\"active\"],null],\"    \\n                \"]]],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.sort.userStatus\"],null],false],[0,\"\\n                \\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"userStatusAscending\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"src\",\"assets/img/dropdown-arrow-up.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"src\",\"assets/img/dropdown-arrow.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[3,\"action\",[[24,0,[]],\"sortUserStatusClick\"]],[10],[0,\"\\n            \"],[7,\"span\"],[12,\"class\",[30,[\"sorting-category\\n                     \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"platformsAscending\"],null],\"active\"],null],\"    \\n                     \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"platformsDescending\"],null],\"active\"],null],\"    \\n                \"]]],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.sort.platforms\"],null],false],[0,\"\\n                \\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"platformsAscending\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"src\",\"assets/img/dropdown-arrow-up.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"src\",\"assets/img/dropdown-arrow.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[3,\"action\",[[24,0,[]],\"sortPlatformsClick\"]],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"]],\"hasEval\":false}",
+    "meta": {
+      "moduleName": "developer-network/templates/components/filter-profile/search-bar.hbs"
     }
   });
 
@@ -7248,8 +7865,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "syEuMoMX",
-    "block": "{\"symbols\":[\"result\",\"index\"],\"statements\":[[7,\"div\"],[11,\"class\",\"sort-panel\"],[9],[0,\"\\n    \"],[7,\"span\"],[11,\"class\",\"categories-container\"],[9],[0,\"\\n        \"],[7,\"span\"],[12,\"class\",[30,[\"category-text \\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"nameAscending\"],null],\"up\"],null],\"\\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"nameDescending\"],null],\"down\"],null],\"\\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],null],null],\"else\"],null]]]],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.sort.name\"],null],false],[0,\"\\n        \"],[3,\"action\",[[24,0,[]],\"sortNameClick\"]],[10],[0,\"\\n        \"],[7,\"span\"],[12,\"class\",[30,[\"category-text \\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"projectsAscending\"],null],\"up\"],null],\"\\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"projectsDescending\"],null],\"down\"],null],\"\\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],null],null],\"else\"],null]]]],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.sort.projects\"],null],false],[0,\"\\n        \"],[3,\"action\",[[24,0,[]],\"sortProjectsClick\"]],[10],[0,\"\\n        \"],[7,\"span\"],[12,\"class\",[30,[\"category-text \\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"platformsAscending\"],null],\"up\"],null],\"\\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],\"platformsDescending\"],null],\"down\"],null],\"\\n                \",[29,\"if\",[[29,\"eq\",[[25,[\"sortTypeActive\"]],null],null],\"else\"],null]]]],[9],[0,\"\\n                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.sort.platforms\"],null],false],[0,\"\\n        \"],[3,\"action\",[[24,0,[]],\"sortPlatformsClick\"]],[10],[0,\"\\n    \"],[10],[0,\" \\n\"],[10],[0,\"\\n\\n\\n\"],[7,\"div\"],[11,\"class\",\"search-results\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"loading\"]]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"loading\"],[9],[0,\"\\n            \"],[1,[29,\"adaptive-g-spinner\",null,[[\"size\"],[\"medium\"]]],false],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"each\",[[25,[\"searchResults\"]]],null,{\"statements\":[[4,\"if\",[[29,\"gte\",[[24,2,[]],[25,[\"visibleCount\"]]],null]],null,{\"statements\":[[0,\"                \"],[1,[29,\"filter-profile/profile-card\",null,[[\"user\",\"deleteHandler\",\"editHandler\",\"isVisible\"],[[24,1,[]],[25,[\"deleteRecord\"]],[25,[\"editRecord\"]],false]]],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"filter-profile/profile-card\",null,[[\"user\",\"deleteHandler\",\"editHandler\",\"isVisible\"],[[24,1,[]],[25,[\"deleteRecord\"]],[25,[\"editRecord\"]],true]]],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[1,2]},null]],\"parameters\":[]}],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"showLoadMore\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"genesys-btn-group long\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"onClick\",\"disabled\"],[\"default\",[29,\"action\",[[24,0,[]],\"loadMore\"],null],[25,[\"loadMorePressed\"]]]],{\"statements\":[[4,\"if\",[[25,[\"loadMorePressed\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.loading\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.searchResults.showLoadMore\"],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
+    "id": "VxjooSkI",
+    "block": "{\"symbols\":[\"result\",\"index\"],\"statements\":[[1,[23,\"filter-profile/search-bar\"],false],[0,\"\\n\\n\"],[7,\"div\"],[11,\"class\",\"search-results\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"loading\"]]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"loading\"],[9],[0,\"\\n            \"],[1,[29,\"adaptive-g-spinner\",null,[[\"size\"],[\"medium\"]]],false],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"gt\",[[25,[\"searchResults\",\"length\"]],0],null]],null,{\"statements\":[[4,\"each\",[[25,[\"searchResults\"]]],null,{\"statements\":[[4,\"if\",[[29,\"gte\",[[24,2,[]],[25,[\"visibleCount\"]]],null]],null,{\"statements\":[[0,\"                    \"],[1,[29,\"filter-profile/profile-card\",null,[[\"user\",\"deleteHandler\",\"editHandler\",\"isVisible\"],[[24,1,[]],[25,[\"deleteRecord\"]],[25,[\"editRecord\"]],false]]],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[1,[29,\"filter-profile/profile-card\",null,[[\"user\",\"deleteHandler\",\"editHandler\",\"isVisible\"],[[24,1,[]],[25,[\"deleteRecord\"]],[25,[\"editRecord\"]],true]]],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[1,2]},null]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"no-results-found\"],[9],[0,\"\\n                No Results Found\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]}],[10],[0,\"\\n\\n\"],[4,\"unless\",[[25,[\"loading\"]]],null,{\"statements\":[[4,\"if\",[[29,\"gt\",[[25,[\"searchResults\",\"length\"]],0],null]],null,{\"statements\":[[4,\"if\",[[25,[\"showPagination\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"filter-profile/pagination\",null,[[\"pageCount\",\"currentPage\",\"goToPage\",\"nextPage\",\"prevPage\"],[[25,[\"pageCount\"]],[25,[\"currentPage\"]],[29,\"action\",[[24,0,[]],\"goToPage\"],null],[29,\"action\",[[24,0,[]],\"nextPage\"],null],[29,\"action\",[[24,0,[]],\"prevPage\"],null]]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/filter-profile/search-results.hbs"
     }
@@ -7266,8 +7883,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "ypmyDI9V",
-    "block": "{\"symbols\":[\"modal\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"position\"],[[25,[\"showEditLogo\"]],[29,\"action\",[[24,0,[]],\"hideEditLogo\"],null],\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/generic/edit-logo-container.hbs' @ L7:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".new\"],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".edit\"],null]],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/generic/edit-logo-container.hbs' @ L14:C7) \"],null]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"edit-logo-container\"],[9],[0,\"\\n    \"],[1,[29,\"generic/img-uploader-container\",null,[[\"origLogoUrl\",\"origLogoRepositoryUrl\",\"showEditButton\",\"newLogo\"],[[25,[\"prmOrigLogoUrl\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"showEditButton\"]],[25,[\"newLogo\"]]]]],false],[0,\"\\n    \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"footer\"]],\"expected `modal.footer` to be a contextual component but found a string. Did you mean `(component modal.footer)`? ('developer-network/templates/components/generic/edit-logo-container.hbs' @ L25:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"type\",\"onClick\",\"disabled\"],[\"success\",[29,\"action\",[[24,0,[]],\"uploadNewLogo\"],null],[25,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".upload\"],null]],null],false],[0,\" \"],[4,\"if\",[[25,[\"isSubmitting\"]]],null,{\"statements\":[[0,\" \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \"]],\"parameters\":[]},null],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[25,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"onClick\"],[[29,\"action\",[[24,0,[]],\"hideEditLogo\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".cancel\"],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "A1nc9cbo",
+    "block": "{\"symbols\":[\"modal\"],\"statements\":[[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"position\",\"class\"],[[25,[\"showEditLogo\"]],[29,\"action\",[[24,0,[]],\"hideEditLogo\"],null],\"center\",\"edit-logo\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/generic/edit-logo-container.hbs' @ L8:C7) \"],null]],[[\"class\"],[\"modalHeader\"]],{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".new\"],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".edit\"],null]],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/generic/edit-logo-container.hbs' @ L15:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"edit-logo-container\"],[9],[0,\"\\n            \"],[1,[29,\"generic/img-uploader-container\",null,[[\"origLogoUrl\",\"origLogoRepositoryUrl\",\"showEditButton\",\"newLogo\",\"invalidImage\"],[[25,[\"prmOrigLogoUrl\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"showEditButton\"]],[25,[\"newLogo\"]],[25,[\"invalidImage\"]]]]],false],[0,\"\\n        \"],[10],[0,\"        \\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"footer\"]],\"expected `modal.footer` to be a contextual component but found a string. Did you mean `(component modal.footer)`? ('developer-network/templates/components/generic/edit-logo-container.hbs' @ L26:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[4,\"unless\",[[25,[\"invalidImage\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"type\",\"onClick\",\"disabled\"],[\"success\",[29,\"action\",[[24,0,[]],\"uploadNewLogo\"],null],[25,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".upload\"],null]],null],false],[0,\" \"],[4,\"if\",[[25,[\"isSubmitting\"]]],null,{\"statements\":[[0,\" \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \"]],\"parameters\":[]},null],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[25,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"onClick\"],[[29,\"action\",[[24,0,[]],\"hideEditLogo\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[[29,\"concat\",[[25,[\"prmLanguagePath\"]],\".cancel\"],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/generic/edit-logo-container.hbs"
     }
@@ -7320,8 +7937,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "SqGm0i2B",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"img-uploader-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"img-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showNewLogoPreview\"]]],null,{\"statements\":[[0,\"            \"],[7,\"img\"],[12,\"src\",[23,\"newLogo\"]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"origLogoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"origLogoRepositoryUrl\"]],[25,[\"origLogoUrl\"]]],null],\"\"],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n            \\n\"]],\"parameters\":[]}],[0,\"    \"],[10],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"        \"],[7,\"label\"],[11,\"for\",\"upload-logo\"],[9],[0,\"\\n            \"],[7,\"span\"],[9],[1,[29,\"t\",[\"devFoundry.components.logo.select\"],null],false],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[7,\"input\"],[12,\"onchange\",[29,\"action\",[[24,0,[]],\"previewLogo\"],null]],[11,\"name\",\"logo\"],[11,\"id\",\"upload-logo\"],[11,\"accept\",\"image/*\"],[11,\"type\",\"file\"],[9],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"]],\"hasEval\":false}",
+    "id": "0vbsf8Nd",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"img-uploader-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"img-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showNewLogoPreview\"]]],null,{\"statements\":[[0,\"            \"],[7,\"img\"],[12,\"src\",[23,\"newLogo\"]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"origLogoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"origLogoRepositoryUrl\"]],[25,[\"origLogoUrl\"]]],null],\"\"],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n            \\n\"]],\"parameters\":[]}],[0,\"    \"],[10],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"invalidImage\"]]],null,{\"statements\":[[0,\"            \"],[7,\"p\"],[9],[0,\"Image exceeds maximum file size: \"],[1,[23,\"maxSize\"],false],[0,\" kb\"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"p\"],[9],[0,\"Maximum file size: \"],[1,[23,\"maxSize\"],false],[0,\" kb\"],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"        \"],[7,\"label\"],[11,\"for\",\"upload-logo\"],[9],[0,\"\\n            \"],[7,\"span\"],[9],[1,[29,\"t\",[\"devFoundry.components.logo.select\"],null],false],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[7,\"input\"],[12,\"onchange\",[29,\"action\",[[24,0,[]],\"previewLogo\"],null]],[11,\"name\",\"logo\"],[11,\"id\",\"upload-logo\"],[11,\"accept\",\"image/*\"],[11,\"type\",\"file\"],[9],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/generic/img-uploader-container.hbs"
     }
@@ -7338,8 +7955,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "bMDpKmI2",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"widgets-wrapper\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"footer-sub-top\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"sub-logo\"],[9],[0,\"\\n                \"],[7,\"a\"],[11,\"id\",\"logo\"],[11,\"href\",\"https://www.genesys.com\"],[11,\"title\",\"Genesys Moments Connected\"],[11,\"data-height\",\"400\"],[11,\"data-padding\",\"15\"],[9],[0,\"\\n                    \"],[7,\"img\"],[11,\"class\",\"logo-main footer-logo scale-with-grid svg lazyloaded\"],[11,\"src\",\"https://genbin.genesys.com/media/Genesys_Logo_White.svg\"],[11,\"data-retina\",\"\"],[11,\"data-height\",\"\"],[11,\"alt\",\"Genesys Moments Connected\"],[11,\"data-no-retina\",\"\"],[11,\"width\",\"200px\"],[11,\"data-lazy-src\",\"https://genbin.genesys.com/media/Genesys_Logo_White.svg\"],[11,\"data-was-processed\",\"true\"],[9],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"phone-only\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"nav_menu-7\"],[11,\"class\",\"widget widget_nav_menu\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"menu-footer-number-only-container\"],[9],[0,\"\\n                        \"],[7,\"ul\"],[11,\"id\",\"menu-footer-number-only\"],[11,\"class\",\"menu\"],[9],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-142189\"],[11,\"class\",\"phone menu-item menu-item-type-custom menu-item-object-custom menu-item-142189\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"href\",\"tel:855-663-8826\"],[11,\"class\",\" invocaTelLink\"],[11,\"data-invoca-campaign-id\",\"genesys2\"],[9],[0,\"\\n                                    \"],[7,\"span\"],[11,\"class\",\"promoNumber\"],[9],[0,\"\\n                                        +\\n                                        \"],[7,\"span\"],[11,\"data-invoca-campaign-id\",\"genesys2\"],[11,\"class\",\"invocaNumber\"],[9],[0,\"1.855.663.8826\"],[10],[0,\"\\n                                    \"],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"sub-bottom\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column one-second\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"custom_html-13\"],[11,\"class\",\"widget_text widget widget_custom_html\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"textwidget custom-html-widget\"],[9],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"/contact-us\"],[9],[0,\"Contact\"],[10],[10],[0,\"                                    \\n                            \"],[7,\"ul\"],[9],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/customer-experience/customer-success/customer-care\"],[9],[0,\"Support\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/select-region\"],[9],[0,\"Select Region\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/sitemap.xml\"],[9],[0,\"Site Map\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/blog\"],[9],[0,\"Blog\"],[10],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"/solutions\"],[9],[0,\"Solutions\"],[10],[10],[0,\"\\n                            \"],[7,\"ul\"],[9],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/solutions/customer-service\"],[9],[0,\"Customer Service\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/solutions/marketing\"],[9],[0,\"Marketing\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/solutions/sales\"],[9],[0,\"Sales\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/partners\"],[9],[0,\"Partners\"],[10],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"/company\"],[9],[0,\"Company\"],[10],[10],[0,\"\\n                            \"],[7,\"ul\"],[9],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/company/newsroom\"],[9],[0,\"Newsroom\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/company/social-responsibility\"],[9],[0,\"Social Responsibility\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/company/leadership\"],[9],[0,\"Leadership\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"/company/careers\"],[9],[0,\"Careers\"],[10],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column one-second\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"custom_html-11\"],[11,\"class\",\"widget_text widget widget_custom_html\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"textwidget custom-html-widget\"],[9],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"/company\"],[9],[0,\"About Genesys\"],[10],[10],[0,\"\\n                            \"],[7,\"p\"],[11,\"class\",\"about\"],[9],[0,\"Genesys® powers 25 billion of the world’s best customer experiences each year. Our success comes from connecting employee and customer conversations on any channel, every day. Over 11,000 companies in 100+ countries trust our #1 customer experience platform to drive great business outcomes and create lasting relationships. Combining the best of technology and human ingenuity, we build solutions that mirror natural communication and work the way you think. Our industry-leading solutions foster true omnichannel engagement, performing equally well across all channels, on-premise and in the cloud. Experience communication as it should be: fluid, instinctive and profoundly empowering.\"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"footer-area-misc\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column footer-social\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"nav_menu-5\"],[11,\"class\",\"widget widget_nav_menu\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"menu-genesys-social-list-icons-container\"],[9],[0,\"\\n                        \"],[7,\"ul\"],[11,\"id\",\"menu-genesys-social-list-icons\"],[11,\"class\",\"menu\"],[9],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-766\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-766\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"https://twitter.com/Genesys\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-twitter-square\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-767\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-767\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.linkedin.com/company/601919?trk=tyah\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-linkedin-square\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-768\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-768\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.facebook.com/genesys\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-facebook-square\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-769\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-769\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.instagram.com/genesyscx\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-instagram\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-771\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-771\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.youtube.com/Genesys\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-youtube-square\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-772\"],[11,\"class\",\"hide-on-blog menu-item menu-item-type-custom menu-item-object-custom menu-item-772\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"https://www.genesys.com/blog\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-wordpress\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-773\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-773\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.slideshare.net/Genesys/\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fa fa-slideshare\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"footer-copy\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column one\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"widget_text copyright\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"textwidget custom-html-widget\"],[9],[0,\"\\n                        \"],[7,\"p\"],[9],[0,\"\\n                            Copyright © 2019 Genesys. All rights reserved. \\n                            \"],[7,\"a\"],[11,\"href\",\"/company/legal/terms-of-use\"],[11,\"style\",\"\"],[9],[0,\"Terms of Use\"],[10],[0,\"\\n                            \"],[7,\"span\"],[9],[0,\" | \"],[10],[0,\"\\n                            \"],[7,\"a\"],[11,\"href\",\"/company/legal/privacy-policy\"],[11,\"style\",\"\"],[9],[0,\"Privacy Policy\"],[10],[0,\"\\n                            \"],[7,\"span\"],[9],[0,\" | \"],[10],[0,\"\\n                            \"],[7,\"a\"],[11,\"href\",\"/campaign/subscribe-genesys-communications\"],[11,\"style\",\"\"],[9],[0,\"Email Subscription\"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
+    "id": "EfCw4nNZ",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"widgets-wrapper\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"footer-sub-top\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"sub-logo\"],[9],[0,\"\\n                \"],[7,\"a\"],[11,\"id\",\"logo\"],[11,\"href\",\"https://www.genesys.com\"],[11,\"title\",\"Genesys Moments Connected\"],[11,\"data-height\",\"400\"],[11,\"data-padding\",\"15\"],[9],[0,\"\\n                    \"],[7,\"img\"],[11,\"class\",\"logo-main footer-logo scale-with-grid svg lazyloaded\"],[11,\"src\",\"https://genbin.genesys.com/media/Genesys_Logo_White.svg\"],[11,\"data-retina\",\"\"],[11,\"data-height\",\"\"],[11,\"alt\",\"Genesys Moments Connected\"],[11,\"data-no-retina\",\"\"],[11,\"width\",\"200px\"],[11,\"data-lazy-src\",\"https://genbin.genesys.com/media/Genesys_Logo_White.svg\"],[11,\"data-was-processed\",\"true\"],[9],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"phone-only\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"nav_menu-7\"],[11,\"class\",\"widget widget_nav_menu\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"menu-footer-number-only-container\"],[9],[0,\"\\n                        \"],[7,\"ul\"],[11,\"id\",\"menu-footer-number-only\"],[11,\"class\",\"menu\"],[9],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-142189\"],[11,\"class\",\"phone menu-item menu-item-type-custom menu-item-object-custom menu-item-142189\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"href\",\"tel:855-663-8826\"],[11,\"class\",\" invocaTelLink\"],[11,\"data-invoca-campaign-id\",\"genesys2\"],[9],[0,\"\\n                                    \"],[7,\"span\"],[11,\"class\",\"promoNumber\"],[9],[0,\"\\n                                        +\\n                                        \"],[7,\"span\"],[11,\"data-invoca-campaign-id\",\"genesys2\"],[11,\"class\",\"invocaNumber\"],[9],[0,\"1.855.663.8826\"],[10],[0,\"\\n                                    \"],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"sub-bottom\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column one-second\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"custom_html-13\"],[11,\"class\",\"widget_text widget widget_custom_html\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"textwidget custom-html-widget\"],[9],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/contact-us\"],[9],[0,\"Contact\"],[10],[10],[0,\"                                    \\n                            \"],[7,\"ul\"],[9],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/customer-experience/customer-success/customer-care\"],[9],[0,\"Support\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/select-region\"],[9],[0,\"Select Region\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/sitemap.xml\"],[9],[0,\"Site Map\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/blog\"],[9],[0,\"Blog\"],[10],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/solutions\"],[9],[0,\"Solutions\"],[10],[10],[0,\"\\n                            \"],[7,\"ul\"],[9],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/solutions/customer-service\"],[9],[0,\"Customer Service\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/solutions/marketing\"],[9],[0,\"Marketing\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/solutions/sales\"],[9],[0,\"Sales\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/partners\"],[9],[0,\"Partners\"],[10],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company\"],[9],[0,\"Company\"],[10],[10],[0,\"\\n                            \"],[7,\"ul\"],[9],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company/newsroom\"],[9],[0,\"Newsroom\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company/social-responsibility\"],[9],[0,\"Social Responsibility\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company/leadership\"],[9],[0,\"Leadership\"],[10],[10],[0,\"\\n                                \"],[7,\"li\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company/careers\"],[9],[0,\"Careers\"],[10],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column one-second\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"custom_html-11\"],[11,\"class\",\"widget_text widget widget_custom_html\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"textwidget custom-html-widget\"],[9],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"footer-three-col\"],[9],[0,\"\\n                            \"],[7,\"h4\"],[9],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company\"],[9],[0,\"About Genesys\"],[10],[10],[0,\"\\n                            \"],[7,\"p\"],[11,\"class\",\"about\"],[9],[0,\"Genesys® powers 25 billion of the world’s best customer experiences each year. Our success comes from connecting employee and customer conversations on any channel, every day. Over 11,000 companies in 100+ countries trust our #1 customer experience platform to drive great business outcomes and create lasting relationships. Combining the best of technology and human ingenuity, we build solutions that mirror natural communication and work the way you think. Our industry-leading solutions foster true omnichannel engagement, performing equally well across all channels, on-premise and in the cloud. Experience communication as it should be: fluid, instinctive and profoundly empowering.\"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"footer-area-misc\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column footer-social\"],[9],[0,\"\\n                \"],[7,\"aside\"],[11,\"id\",\"nav_menu-5\"],[11,\"class\",\"widget widget_nav_menu\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"menu-genesys-social-list-icons-container\"],[9],[0,\"\\n                        \"],[7,\"ul\"],[11,\"id\",\"menu-genesys-social-list-icons\"],[11,\"class\",\"menu\"],[9],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-766\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-766\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"https://twitter.com/Genesys\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-twitter\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-768\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-767\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.facebook.com/genesys\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-facebook-square\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-767\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-768\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.linkedin.com/company/601919?trk=tyah\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-linkedin\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"                            \\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-769\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-769\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.instagram.com/genesyscx\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-instagram\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-771\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-770\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.youtube.com/Genesys\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-youtube\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-772\"],[11,\"class\",\"hide-on-blog menu-item menu-item-type-custom menu-item-object-custom menu-item-771\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"https://www.genesys.com/blog\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-wordpress\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                            \"],[7,\"li\"],[11,\"id\",\"menu-item-773\"],[11,\"class\",\"menu-item menu-item-type-custom menu-item-object-custom menu-item-772\"],[9],[0,\"\\n                                \"],[7,\"a\"],[11,\"target\",\"_blank\"],[11,\"href\",\"http://www.slideshare.net/Genesys/\"],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-slideshare\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"footer-copy\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"column one\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"widget_text copyright\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"textwidget custom-html-widget\"],[9],[0,\"\\n                        \"],[7,\"p\"],[9],[0,\"\\n                            Copyright © 2019 Genesys. All rights reserved. \\n                            \"],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company/legal/terms-of-use\"],[11,\"style\",\"\"],[9],[0,\"Terms of Use\"],[10],[0,\"\\n                            \"],[7,\"span\"],[9],[0,\" | \"],[10],[0,\"\\n                            \"],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/company/legal/privacy-policy\"],[11,\"style\",\"\"],[9],[0,\"Privacy Policy\"],[10],[0,\"\\n                            \"],[7,\"span\"],[9],[0,\" | \"],[10],[0,\"\\n                            \"],[7,\"a\"],[11,\"href\",\"https://www.genesys.com/campaign/subscribe-genesys-communications\"],[11,\"style\",\"\"],[9],[0,\"Email Subscription\"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/global/app-foundry-footer.hbs"
     }
@@ -7357,7 +7974,7 @@
 
   var _default = Ember.HTMLBars.template({
     "id": "pwxV968A",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"header-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"top-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"logo-container\"],[9],[0,\"\\n            \"],[7,\"img\"],[11,\"src\",\"..assets/img/creators-logo-white.png\"],[11,\"alt\",\"\"],[11,\"class\",\"logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"navigateHome\"],null]],[9],[10],[0,\"\\n        \"],[10],[0,\"\\n        \\n\"],[4,\"if\",[[25,[\"showSearchBar\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"search-bar-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"search-bar\"],[9],[0,\"\\n                    \"],[1,[29,\"input\",null,[[\"value\",\"placeholder\",\"key-up\"],[[25,[\"searchValue\"]],[29,\"t\",[\"devFoundry.header.search\"],null],[29,\"action\",[[24,0,[]],\"handleSearch\",[25,[\"searchValue\"]]],null]]]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"shouldDisplayX\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-times search-icon\"],[9],[3,\"action\",[[24,0,[]],\"clearSearch\"]],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-search search-icon\"],[9],[3,\"action\",[[24,0,[]],\"handleSearch\",[25,[\"searchValue\"]]]],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"i\"],[12,\"class\",[29,\"if\",[[25,[\"mobileFilterShown\"]],\"fa fa-filter filter-icon pressed\",\"fa fa-filter filter-icon\"],null]],[9],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"clickFilterButton\"]],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"contentPanelTitle\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"search-bar-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"header-title\"],[9],[0,\"\\n                    \"],[1,[23,\"contentPanelTitle\"],false],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"header-right-side\"],[9],[0,\"\\n            \"],[1,[23,\"global/login-widget\"],false],[0,\"\\n            \"],[1,[23,\"global/settings-modal\"],false],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n    \\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"header-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"top-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"logo-container\"],[9],[0,\"\\n            \"],[7,\"img\"],[11,\"src\",\"assets/img/creators-logo-white.png\"],[11,\"alt\",\"\"],[11,\"class\",\"logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"navigateHome\"],null]],[9],[10],[0,\"\\n        \"],[10],[0,\"\\n        \\n\"],[4,\"if\",[[25,[\"showSearchBar\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"search-bar-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"search-bar\"],[9],[0,\"\\n                    \"],[1,[29,\"input\",null,[[\"value\",\"placeholder\",\"key-up\"],[[25,[\"searchValue\"]],[29,\"t\",[\"devFoundry.header.search\"],null],[29,\"action\",[[24,0,[]],\"handleSearch\",[25,[\"searchValue\"]]],null]]]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"shouldDisplayX\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-times search-icon\"],[9],[3,\"action\",[[24,0,[]],\"clearSearch\"]],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"i\"],[11,\"class\",\"fa fa-search search-icon\"],[9],[3,\"action\",[[24,0,[]],\"handleSearch\",[25,[\"searchValue\"]]]],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"i\"],[12,\"class\",[29,\"if\",[[25,[\"mobileFilterShown\"]],\"fa fa-filter filter-icon pressed\",\"fa fa-filter filter-icon\"],null]],[9],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"clickFilterButton\"]],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"contentPanelTitle\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"search-bar-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"header-title\"],[9],[0,\"\\n                    \"],[1,[23,\"contentPanelTitle\"],false],[0,\"\\n                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"header-right-side\"],[9],[0,\"\\n            \"],[1,[23,\"global/login-widget\"],false],[0,\"\\n            \"],[1,[23,\"global/settings-modal\"],false],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n    \\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/global/app-foundry-header.hbs"
     }
@@ -7374,8 +7991,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "J460d8Gp",
-    "block": "{\"symbols\":[\"dd\",\"menu\"],\"statements\":[[4,\"if\",[[25,[\"showLoginButton\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"authentication-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"authentication\",\"authFinished\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"authentication\",\"isLoggedIn\"]]],null,{\"statements\":[[4,\"bs-dropdown\",null,[[\"tagName\"],[\"span\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"toggle\"]],\"expected `dd.toggle` to be a contextual component but found a string. Did you mean `(component dd.toggle)`? ('developer-network/templates/components/global/login-widget.hbs' @ L6:C19) \"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[30,[[25,[\"profileImageUrl\",\"content\"]]]]],[11,\"class\",\"profile-image\"],[9],[10],[0,\"\\n\\n                \"],[1,[25,[\"user\",\"bio\",\"name\"]],false],[0,\" \"],[7,\"span\"],[11,\"class\",\"caret\"],[9],[10]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"menu\"]],\"expected `dd.menu` to be a contextual component but found a string. Did you mean `(component dd.menu)`? ('developer-network/templates/components/global/login-widget.hbs' @ L10:C19) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L11:C23) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"link-to\"]],\"expected `menu.link-to` to be a contextual component but found a string. Did you mean `(component menu.link-to)`? ('developer-network/templates/components/global/login-widget.hbs' @ L12:C27) \"],null],\"profile\",[25,[\"userId\",\"content\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.myProfile\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"                    \"],[1,[24,2,[\"divider\"]],false],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L23:C23) \"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"menu-item-container\"],[9],[0,\"\\n                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signOut\"],null],false],[0,\"\\n                        \"],[3,\"action\",[[24,0,[]],\"logout\"]],[10],[0,\"  \\n\"]],\"parameters\":[]},null]],\"parameters\":[2]},null]],\"parameters\":[1]},null]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"login-buttons-container\"],[9],[0,\"\\n                \"],[7,\"button\"],[11,\"class\",\"login-button\"],[9],[0,\"\\n                    \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signIn\"],null],false],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"signinHostedUI\"]],[10],[0,\"\\n                \"],[7,\"button\"],[11,\"class\",\"signup-button\"],[9],[0,\"\\n                    \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signUp\"],null],false],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"signinHostedUI\"]],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"]],\"hasEval\":false}",
+    "id": "eRoe/qV7",
+    "block": "{\"symbols\":[\"dd\",\"menu\"],\"statements\":[[4,\"if\",[[25,[\"showLoginButton\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"authentication-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"authentication\",\"authFinished\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"authentication\",\"isLoggedIn\"]]],null,{\"statements\":[[4,\"bs-dropdown\",null,[[\"tagName\"],[\"span\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"toggle\"]],\"expected `dd.toggle` to be a contextual component but found a string. Did you mean `(component dd.toggle)`? ('developer-network/templates/components/global/login-widget.hbs' @ L6:C19) \"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[30,[[25,[\"profileImageUrl\",\"content\"]]]]],[12,\"class\",[30,[\"profile-image \",[25,[\"availability\",\"content\"]]]]],[9],[10],[0,\"\\n\\n                \"],[1,[25,[\"user\",\"bio\",\"name\"]],false],[0,\" \"],[7,\"span\"],[11,\"class\",\"caret\"],[9],[10]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"menu\"]],\"expected `dd.menu` to be a contextual component but found a string. Did you mean `(component dd.menu)`? ('developer-network/templates/components/global/login-widget.hbs' @ L12:C19) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L13:C23) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"link-to\"]],\"expected `menu.link-to` to be a contextual component but found a string. Did you mean `(component menu.link-to)`? ('developer-network/templates/components/global/login-widget.hbs' @ L14:C27) \"],null],\"profile\",[25,[\"userId\",\"content\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.myProfile\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"                    \"],[1,[24,2,[\"divider\"]],false],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L19:C23) \"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"menu-item-container\"],[9],[0,\"\\n                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signOut\"],null],false],[0,\"\\n                        \"],[3,\"action\",[[24,0,[]],\"logout\"]],[10],[0,\"  \\n\"]],\"parameters\":[]},null]],\"parameters\":[2]},null]],\"parameters\":[1]},null]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"login-buttons-container\"],[9],[0,\"\\n                \"],[7,\"button\"],[11,\"class\",\"login-button\"],[9],[0,\"\\n                    \"],[7,\"img\"],[11,\"src\",\"assets/img/people-male.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n                    \"],[7,\"span\"],[9],[0,\"\\n                        \"],[1,[29,\"concat\",[[29,\"t\",[\"devFoundry.header.loginWidget.signIn\"],null],\" / \",[29,\"t\",[\"devFoundry.header.loginWidget.signUp\"],null]],null],false],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"signinHostedUI\"]],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/global/login-widget.hbs"
     }
@@ -7410,8 +8027,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "OcUyabSq",
-    "block": "{\"symbols\":[\"modal\",\"form\",\"badge\"],\"statements\":[[7,\"div\"],[11,\"class\",\"badge-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-details\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.label\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fa fa-plus-circle\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"newBadgeShow\"]]],null],true],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"    \\n\\n\"],[4,\"each\",[[25,[\"model\"]]],null,{\"statements\":[[0,\"    \"],[1,[29,\"profile-page/badge-detail\",null,[[\"showControls\",\"badge\",\"stageForDeletion\",\"editBadgeShow\",\"editBadge\",\"logoRepositoryUrl\"],[[25,[\"showControls\"]],[24,3,[]],[29,\"action\",[[24,0,[]],\"deleteBadge\"],null],[25,[\"editBadgeShow\"]],[29,\"action\",[[24,0,[]],\"editBadge\"],null],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[1,[29,\"edit-badge/container\",null,[[\"newBadge\",\"editBadgeShow\"],[true,[25,[\"newBadgeShow\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"edit-badge/container\",null,[[\"newBadge\",\"changeset\",\"editBadgeShow\",\"logoRepositoryUrl\"],[false,[25,[\"badgeChangeset\"]],[25,[\"editBadgeShow\"]],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"onHidden\"],[[25,[\"deleteBadgeShow\"]],\"center\",[29,\"action\",[[24,0,[]],\"cancelBadgeDeletion\"],null]]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/badge-container.hbs' @ L44:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmation\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/badge-container.hbs' @ L47:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmDelete\"],null],false],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"confirmDeleteBadge\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"\\n        \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmYes\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancelBadgeDeletion\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "nIqZ9sZ4",
+    "block": "{\"symbols\":[\"modal\",\"form\",\"badge\"],\"statements\":[[7,\"div\"],[11,\"class\",\"badge-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-details\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.label\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fa fa-plus\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"newBadgeShow\"]]],null],true],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"    \\n\\n\"],[4,\"each\",[[25,[\"model\"]]],null,{\"statements\":[[0,\"    \"],[1,[29,\"profile-page/badge-detail\",null,[[\"showControls\",\"badge\",\"stageForDeletion\",\"editBadgeShow\",\"editBadge\",\"logoRepositoryUrl\"],[[25,[\"showControls\"]],[24,3,[]],[29,\"action\",[[24,0,[]],\"deleteBadge\"],null],[25,[\"editBadgeShow\"]],[29,\"action\",[[24,0,[]],\"editBadge\"],null],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[1,[29,\"edit-badge/container\",null,[[\"newBadge\",\"editBadgeShow\"],[true,[25,[\"newBadgeShow\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"edit-badge/container\",null,[[\"newBadge\",\"changeset\",\"editBadgeShow\",\"logoRepositoryUrl\"],[false,[25,[\"badgeChangeset\"]],[25,[\"editBadgeShow\"]],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"onHidden\"],[[25,[\"deleteBadgeShow\"]],\"center\",[29,\"action\",[[24,0,[]],\"cancelBadgeDeletion\"],null]]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/badge-container.hbs' @ L44:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmation\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/badge-container.hbs' @ L47:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmDelete\"],null],false],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"confirmDeleteBadge\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"\\n        \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmYes\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancelBadgeDeletion\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.badge.listing.confirmNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/badge-container.hbs"
     }
@@ -7428,8 +8045,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "9zCjaUfy",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"badge-detail\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-detail-logo\"],[9],[0,\"\\n        \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"badge\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"logoRepositoryUrl\"]],[25,[\"badge\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultBadgeLogo\"]]],null]],[9],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-detail-controls\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fa fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"editBadge\"]],[25,[\"badge\"]]],null]],[9],[10],[0,\"\\n            \"],[7,\"i\"],[11,\"class\",\"fa fa-trash\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"stageForDeletion\"]],[25,[\"badge\"]]],null]],[9],[10],[0,\"  \\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-detail-text\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"badge-detail-name\"],[9],[0,\"\\n            \"],[7,\"div\"],[9],[1,[25,[\"badge\",\"name\"]],false],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            \"],[7,\"a\"],[12,\"href\",[25,[\"badge\",\"url\"]]],[11,\"target\",\"_blank\"],[9],[1,[25,[\"badge\",\"url\"]],false],[10],[0,\"\\n        \"],[10],[0,\" \\n        \"],[7,\"div\"],[9],[4,\"if\",[[25,[\"project\",\"fromDate\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.badge.date\"],null],false],[0,\" \"],[1,[25,[\"badge\",\"date\"]],false]],\"parameters\":[]},null],[10],[0,\"\\n        \"],[7,\"div\"],[9],[1,[25,[\"badge\",\"description\"]],false],[10],[0,\"\\n    \"],[10],[0,\"\\n       \\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
+    "id": "+bx1WfjM",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"badge-detail\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-detail-logo\"],[9],[0,\"\\n        \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"badge\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"logoRepositoryUrl\"]],[25,[\"badge\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultBadgeLogo\"]]],null]],[9],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-detail-controls\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"far fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"editBadge\"]],[25,[\"badge\"]]],null]],[9],[10],[0,\"\\n            \"],[7,\"i\"],[11,\"class\",\"far fa-trash-alt\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"stageForDeletion\"]],[25,[\"badge\"]]],null]],[9],[10],[0,\"  \\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"badge-detail-text\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"badge-detail-name\"],[9],[0,\"\\n            \"],[7,\"div\"],[9],[1,[25,[\"badge\",\"name\"]],false],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"badge-detail-url\"],[9],[0,\"\\n            \"],[7,\"a\"],[12,\"href\",[25,[\"badge\",\"url\"]]],[11,\"target\",\"_blank\"],[9],[1,[25,[\"badge\",\"url\"]],false],[10],[0,\"\\n        \"],[10],[0,\" \\n        \"],[7,\"div\"],[11,\"class\",\"badge-detail-issue\"],[9],[0,\"\\n            \"],[4,\"if\",[[25,[\"badge\",\"issuedAt\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.badge.issuedAt\"],null],false],[0,\" \"],[1,[25,[\"badge\",\"issuedAt\"]],false]],\"parameters\":[]},null],[0,\"\\n            \"],[4,\"if\",[[25,[\"badge\",\"issuer\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.badge.issuer\"],null],false],[0,\" \"],[1,[25,[\"badge\",\"issuer\"]],false]],\"parameters\":[]},null],[0,\"\\n        \"],[10],[0,\"        \\n        \"],[7,\"div\"],[11,\"class\",\"badge-detail-description\"],[9],[1,[25,[\"badge\",\"description\"]],false],[10],[0,\"\\n    \"],[10],[0,\"       \\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/badge-detail.hbs"
     }
@@ -7446,8 +8063,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "fMQgNDGs",
-    "block": "{\"symbols\":[\"modal\",\"modal\",\"profile\",\"interest\"],\"statements\":[[7,\"div\"],[11,\"class\",\"profile-details-container-outer\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"profile-details-left-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"close-profile\"],[9],[0,\"\\n            \"],[7,\"i\"],[11,\"class\",\"fa fa-window-close\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"closeProfile\"],null]],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.exit\"],null],\"top\"]]],false],[10],[0,\"                        \\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"profile-details-container-header\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"profile-details-logo-container\"],[9],[0,\"\\n                \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"companyLogoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"companyLogoUrl\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[25,[\"assetLocatorService\",\"addButton\"]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"profile-details-header-right-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"div\"],[11,\"class\",\"profile-details-edit\"],[9],[0,\"\\n                        \"],[7,\"div\"],[11,\"style\",\"display: flex; justify-content: flex-end;\"],[9],[0,\"\\n                            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.label\"],null],false],[0,\"\\n                            \"],[1,[29,\"x-toggle\",null,[[\"showLabels\",\"size\",\"value\",\"onToggle\"],[false,\"small\",[25,[\"model\",\"user\",\"isPublished\"]],[29,\"action\",[[24,0,[]],\"togglePublish\"],null]]]],false],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"style\",\"display: flex; justify-content: flex-end;\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"onClick\",\"class\"],[[29,\"action\",[[24,0,[]],\"deleteModalShow\"],null],\"delete-account-btn\"]],{\"statements\":[[0,\"                                \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"div\"],[11,\"class\",\"profile-details-name\"],[9],[0,\"\\n                        \"],[1,[24,3,[\"bio\",\"name\"]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"i\"],[11,\"class\",\"fa fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"editProfile\"]]],null],true],null]],[9],[0,\"\\n                                \"],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.edit\"],null],\"top\"]]],false],[0,\"\\n                            \"],[10],[0,\"                                                        \\n\"]],\"parameters\":[]},null],[0,\"                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-position\"],[9],[0,\"\\n                        \"],[1,[29,\"concat\",[[24,3,[\"bio\",\"position\"]],\" at \",[24,3,[\"bio\",\"company\"]]],null],false],[0,\"\\n                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-category-title\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.lookingFor\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[24,3,[\"bio\",\"lookingFor\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userLookingFor.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                        \"],[10],[0,\"\\n                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-status\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"status\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.status\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userStatuses.\",[24,3,[\"bio\",\"status\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-type\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"type\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.type\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.companyTypes.\",[24,3,[\"bio\",\"type\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-briefDescription\"],[9],[0,\"\\n                        \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.description\"],null],false],[0,\": \"],[10],[0,\"\\n                        \"],[1,[24,3,[\"bio\",\"description\"]],false],[0,\"\\n                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-website\"],[9],[0,\"\\n                        \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.website\"],null],false],[0,\": \"],[10],[0,\"\\n                        \"],[7,\"a\"],[12,\"href\",[24,3,[\"bio\",\"website\"]]],[9],[1,[24,3,[\"bio\",\"website\"]],false],[10],[0,\"\\n                    \"],[10],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-externalProfile\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"phone\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"tel:\",[24,3,[\"contacts\",\"phone\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-phone\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"email\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"mailto:\",[24,3,[\"contacts\",\"email\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-envelope\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"community\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://community.genesys.com/network/members/profile?UserKey=\",[24,3,[\"contacts\",\"community\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-wordpress\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"whatsapp\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://wa.me/\",[24,3,[\"contacts\",\"whatsapp\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-whatsapp\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"facebook\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.facebook.com/\",[24,3,[\"contacts\",\"facebook\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-facebook\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"twitter\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://twitter.com/\",[24,3,[\"contacts\",\"twitter\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-twitter\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"linkedin\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.linkedin.com/in/\",[24,3,[\"contacts\",\"linkedin\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-linkedin\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"github\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.github.com/\",[24,3,[\"contacts\",\"github\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-github\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"bitbucket\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                            \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://bitbucket.org/\",[24,3,[\"contacts\",\"bitbucket\"]]],null]],[9],[0,\"\\n                                \"],[7,\"i\"],[11,\"class\",\"fa fa-bitbucket\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                    \"],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"profile-details-title-container\"],[9],[10],[0,\"\\n        \"],[10],[0,\"\\n\\n        \"],[7,\"hr\"],[9],[10],[0,\"\\n        \"],[1,[29,\"profile-page/details\",null,[[\"model\"],[[25,[\"model\"]]]]],false],[0,\"\\n\\n        \"],[7,\"hr\"],[9],[10],[0,\"\\n        \"],[1,[29,\"profile-page/project-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"projects\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\\n        \"],[7,\"hr\"],[9],[10],[0,\"\\n        \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[29,\"edit-profile/container\",null,[[\"model\",\"editProfile\"],[[25,[\"model\",\"profile\"]],[25,[\"editProfile\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"logoData\",\"devFoundry.components.logo\",[25,[\"model\",\"profile\",\"logoUrl\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditCompanyLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"companyLogoData\",\"devFoundry.components.companyLogo\",[25,[\"model\",\"profile\",\"companyLogoUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"onSubmit\",\"position\"],[[25,[\"showPublishConfirmation\"]],[29,\"action\",[[24,0,[]],\"cancelPublishChange\"],null],[29,\"action\",[[24,0,[]],\"confirmPublishChange\"],null],\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/container.hbs' @ L205:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/container.hbs' @ L212:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"style\",\"padding: 10px;\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"footer\"]],\"expected `modal.footer` to be a contextual component but found a string. Did you mean `(component modal.footer)`? ('developer-network/templates/components/profile-page/container.hbs' @ L222:C7) \"],null]],null,{\"statements\":[[4,\"bs-button\",null,[[\"onClick\"],[[29,\"action\",[[24,0,[]],[24,2,[\"close\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"bs-button\",null,[[\"type\",\"onClick\"],[\"success\",[29,\"action\",[[24,0,[]],[24,2,[\"submit\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeYes\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[2]},null],[0,\"\\n\"],[4,\"bs-modal-simple\",null,[[\"open\",\"title\",\"closeTitle\",\"submitTitle\",\"closeButton\",\"position\",\"onHidden\",\"onSubmit\"],[[25,[\"deleteAccountConfirmationShow\"]],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeCancel\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeDelete\"],null],true,\"center\",[29,\"action\",[[24,0,[]],\"deleteModalCancel\"],null],[29,\"action\",[[24,0,[]],\"deleteAccount\"],null]]],{\"statements\":[[0,\"    \"],[7,\"p\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.confirmDeleteAccount\"],null],false],[0,\"\\n    \"],[10],[0,\" \\n    \"],[7,\"p\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.warnDeleteAccount\"],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "W5H3UM97",
+    "block": "{\"symbols\":[\"modal\",\"modal\",\"profile\",\"interest\",\"profile\"],\"statements\":[[7,\"div\"],[11,\"class\",\"profile-details-container-outer\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"profile-details-left-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"profile-details-highlight\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"close-profile\"],[9],[0,\"\\n                \"],[7,\"i\"],[11,\"class\",\"far fa-times-circle\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"closeProfile\"],null]],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.exit\"],null],\"top\"]]],false],[10],[0,\"                        \\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"profile-details-container-header\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-logo-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"model\",\"profile\",\"bio\",\"status\"]],\"Available\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid green;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"model\",\"profile\",\"bio\",\"status\"]],\"Busy\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid red;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid gray;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"companyLogoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"companyLogoUrl\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[25,[\"assetLocatorService\",\"addButton\"]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-header-right-container\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-header\"],[9],[0,\"\\n\"],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"name-and-position\"],[9],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"profile-details-name\"],[9],[0,\"\\n                                    \"],[1,[24,5,[\"bio\",\"name\"]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                                        \"],[7,\"i\"],[11,\"class\",\"far fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"editProfile\"]]],null],true],null]],[9],[0,\"\\n                                            \"],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.edit\"],null],\"top\"]]],false],[0,\"\\n                                        \"],[10],[0,\"                                                        \\n\"]],\"parameters\":[]},null],[0,\"                                \"],[10],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"profile-details-position\"],[9],[0,\"\\n\"],[4,\"if\",[[24,5,[\"bio\",\"company\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[29,\"concat\",[[24,5,[\"bio\",\"position\"]],\" at \",[24,5,[\"bio\",\"company\"]]],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                                        \"],[1,[29,\"concat\",[[24,5,[\"bio\",\"position\"]]],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"                                \"],[10],[0,\"\\n                            \"],[10],[0,\"                        \\n\"]],\"parameters\":[5]},null],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"profile-details-edit\"],[9],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"publish-profile\"],[9],[0,\"\\n                                    \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.label\"],null],false],[0,\"\\n                                    \"],[1,[29,\"x-toggle\",null,[[\"theme\",\"showLabels\",\"size\",\"value\",\"onToggle\"],[\"material\",false,\"small\",[25,[\"model\",\"user\",\"isPublished\"]],[29,\"action\",[[24,0,[]],\"togglePublish\"],null]]]],false],[0,\"\\n                                \"],[10],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"delete-account\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"onClick\",\"class\"],[[29,\"action\",[[24,0,[]],\"deleteModalShow\"],null],\"delete-account-btn\"]],{\"statements\":[[0,\"                                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"contacts\",\"email\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"div\"],[11,\"class\",\"contact-me\"],[9],[0,\"\\n                                    \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"mailto:\",[25,[\"model\",\"profile\",\"contacts\",\"email\"]]],null]],[9],[0,\"\\n                                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.contact\"],null],false],[0,\"\\n                                    \"],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"                    \"],[10],[0,\"\\n\"],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                            \"],[7,\"div\"],[11,\"class\",\"profile-details-category-title\"],[9],[0,\"\\n                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.lookingFor\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[24,3,[\"bio\",\"lookingFor\"]]],null,{\"statements\":[[0,\"                                    \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userLookingFor.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-status\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"status\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.status\"],null],false],[0,\": \"],[10],[0,\"\\n                                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userStatuses.\",[24,3,[\"bio\",\"status\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-type\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"type\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.type\"],null],false],[0,\": \"],[10],[0,\"\\n                                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.companyTypes.\",[24,3,[\"bio\",\"type\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-briefDescription\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.description\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[1,[24,3,[\"bio\",\"description\"]],false],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-website\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.website\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[7,\"a\"],[12,\"href\",[24,3,[\"bio\",\"website\"]]],[9],[1,[24,3,[\"bio\",\"website\"]],false],[10],[0,\"\\n                        \"],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-title-container\"],[9],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"  \\n        \"],[7,\"div\"],[11,\"class\",\"profile-details\"],[9],[0,\"\\n            \"],[1,[29,\"profile-page/details\",null,[[\"model\"],[[25,[\"model\"]]]]],false],[0,\"\\n\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n            \"],[1,[29,\"profile-page/project-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"projects\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\\n            \"],[7,\"div\"],[11,\"class\",\"badges\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"genbadges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                    \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                    \\n\"],[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"hr\"],[9],[10],[0,\"    \\n                        \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                            \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                        \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                            \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[7,\"hr\"],[9],[10],[0,\"\\n                            \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                            \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[7,\"hr\"],[9],[10],[0,\"\\n                            \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                        \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"            \\n        \"],[10],[0,\"              \\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[29,\"edit-profile/container\",null,[[\"model\",\"editProfile\"],[[25,[\"model\",\"profile\"]],[25,[\"editProfile\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"logoData\",\"devFoundry.components.logo\",[25,[\"model\",\"profile\",\"logoUrl\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditCompanyLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"companyLogoData\",\"devFoundry.components.companyLogo\",[25,[\"model\",\"profile\",\"companyLogoUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"onSubmit\",\"position\"],[[25,[\"showPublishConfirmation\"]],[29,\"action\",[[24,0,[]],\"cancelPublishChange\"],null],[29,\"action\",[[24,0,[]],\"confirmPublishChange\"],null],\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/container.hbs' @ L248:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/container.hbs' @ L255:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"style\",\"padding: 10px;\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"footer\"]],\"expected `modal.footer` to be a contextual component but found a string. Did you mean `(component modal.footer)`? ('developer-network/templates/components/profile-page/container.hbs' @ L265:C7) \"],null]],null,{\"statements\":[[4,\"bs-button\",null,[[\"onClick\"],[[29,\"action\",[[24,0,[]],[24,2,[\"close\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"bs-button\",null,[[\"type\",\"onClick\"],[\"success\",[29,\"action\",[[24,0,[]],[24,2,[\"submit\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeYes\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[2]},null],[0,\"\\n\"],[4,\"bs-modal-simple\",null,[[\"open\",\"title\",\"closeTitle\",\"submitTitle\",\"closeButton\",\"position\",\"onHidden\",\"onSubmit\"],[[25,[\"deleteAccountConfirmationShow\"]],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeCancel\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeDelete\"],null],true,\"center\",[29,\"action\",[[24,0,[]],\"deleteModalCancel\"],null],[29,\"action\",[[24,0,[]],\"deleteAccount\"],null]]],{\"statements\":[[0,\"    \"],[7,\"p\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.confirmDeleteAccount\"],null],false],[0,\"\\n    \"],[10],[0,\" \\n    \"],[7,\"p\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.warnDeleteAccount\"],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/container.hbs"
     }
@@ -7464,10 +8081,46 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "aSMHiS4D",
-    "block": "{\"symbols\":[\"proficiency\",\"technology\",\"feature\",\"lang\",\"platform\",\"lang\",\"region\",\"country\"],\"statements\":[[7,\"div\"],[11,\"class\",\"container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"profile-detail-text\"],[9],[0,\"\\n        \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.postalCode\"],null],false],[0,\": \"],[10],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]],false],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.country\"],null],false],[0,\": \"],[10],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null]],null],false],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.countries\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[24,8,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[8]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.regions\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.regions.\",[24,7,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[7]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.spokenLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.spokenLanguages.\",[24,6,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[6]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\\n    \"],[7,\"div\"],[11,\"class\",\"profile-detail-text\"],[9],[0,\"\\n        \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.genesysPlatforms\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.genesysPlatforms.\",[24,5,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.programmingLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.features\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.features.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.technologies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.technologies.\",[24,2,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"profile-details-category col-md-12\"],[9],[0,\"\\n                \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.proficiencies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                    \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.proficiencies.\",[24,1,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\\n    \"],[7,\"div\"],[11,\"class\",\"profile-detail-text\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"row profile-details-category col-md-12\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.knowledge\"],null],false],[0,\": \"],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]],false],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"row profile-details-category col-md-12\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.industryKnowledge\"],null],false],[0,\": \"],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]],false],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"row profile-details-category col-md-12\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]]],null,{\"statements\":[[0,\"                \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.certifications\"],null],false],[0,\": \"],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]],false],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
+    "id": "hJzHznlU",
+    "block": "{\"symbols\":[\"lang\",\"region\",\"country\",\"proficiency\",\"technology\",\"feature\",\"lang\",\"platform\"],\"statements\":[[7,\"div\"],[11,\"class\",\"container-skill\"],[9],[0,\"\\n    \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"skills-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"skills-details\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.genesysPlatforms\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.genesysPlatforms.\",[24,8,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[8]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.programmingLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,7,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[7]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.features\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.features.\",[24,6,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[6]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.technologies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.technologies.\",[24,5,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.proficiencies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.proficiencies.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.knowledge\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]],false],[10],[0,\"\\n                \"],[10],[0,\"                \\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.industryKnowledge\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.certifications\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]],false],[10],[0,\"\\n                \"],[10],[0,\"                \\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"location-and-languages\"],[9],[0,\"\\n            \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.postalCode\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.country\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null]],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.countries\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.regions\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.regions.\",[24,2,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.spokenLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.spokenLanguages.\",[24,1,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/details.hbs"
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/templates/components/profile-page/genbadge-container", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.HTMLBars.template({
+    "id": "H8PoudbU",
+    "block": "{\"symbols\":[\"modal\",\"form\",\"modal\",\"form\",\"genbadge\"],\"statements\":[[7,\"div\"],[11,\"class\",\"genbadge-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"genbadge-details\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.label\"],null],false],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"firstObject\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"firstObject\",\"lastRefresh\"]]],null,{\"statements\":[[0,\"                \"],[7,\"span\"],[11,\"class\",\"genbadge-lastrefresh\"],[9],[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.genbadge.lastRefresh\"],null],false],[0,\" \"],[1,[25,[\"model\",\"firstObject\",\"lastRefresh\"]],false],[0,\")\"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fas fa-cloud-download-alt\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"importGenbadgeShow\"]]],null],true],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"    \\n\\n\"],[4,\"each\",[[25,[\"model\"]]],null,{\"statements\":[[0,\"        \"],[1,[29,\"profile-page/genbadge-detail\",null,[[\"showControls\",\"genbadge\",\"stageForDeletion\",\"logoRepositoryUrl\"],[[25,[\"showControls\"]],[24,5,[]],[29,\"action\",[[24,0,[]],\"deleteGenbadge\"],null],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"onHidden\"],[[25,[\"deleteGenbadgeShow\"]],\"center\",[29,\"action\",[[24,0,[]],\"cancelGenbadgeDeletion\"],null]]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,3,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/genbadge-container.hbs' @ L33:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmation\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,3,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/genbadge-container.hbs' @ L36:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmDelete\"],null],false],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"confirmDeleteGenbadge\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"\\n        \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,4,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmYes\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,4,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,4,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,4,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancelGenbadgeDeletion\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[4]},null]],\"parameters\":[]},null]],\"parameters\":[3]},null],[0,\"\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"onHidden\"],[[25,[\"importGenbadgeShow\"]],\"center\",[29,\"action\",[[24,0,[]],\"cancelGenbadgeImport\"],null]]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/genbadge-container.hbs' @ L78:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmation\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/genbadge-container.hbs' @ L81:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmImport\"],null],false],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"confirmImportGenbadge\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"\\n        \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmImportYes\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancelGenbadgeImport\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.genbadge.listing.confirmImportNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "meta": {
+      "moduleName": "developer-network/templates/components/profile-page/genbadge-container.hbs"
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/templates/components/profile-page/genbadge-detail", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.HTMLBars.template({
+    "id": "O55lyyu7",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"genbadge-detail\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-logo\"],[9],[0,\"\\n        \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"genbadge\",\"imageUrl\",\"length\"]],0],null],[25,[\"genbadge\",\"imageUrl\"]],[25,[\"assetLocatorService\",\"defaultGenbadgeLogo\"]]],null]],[9],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-controls\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"far fa-trash-alt\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"stageForDeletion\"]],[25,[\"genbadge\"]]],null]],[9],[10],[0,\"  \\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-text\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-name\"],[9],[0,\"\\n            \"],[7,\"div\"],[9],[1,[25,[\"genbadge\",\"name\"]],false],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-url\"],[9],[0,\"\\n            \"],[7,\"a\"],[12,\"href\",[25,[\"genbadge\",\"url\"]]],[11,\"target\",\"_blank\"],[9],[1,[29,\"t\",[\"devFoundry.components.genbadge.url\"],null],false],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-issue\"],[9],[0,\"\\n            \"],[4,\"if\",[[25,[\"genbadge\",\"issuedAt\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.genbadge.issuedAt\"],null],false],[0,\" \"],[1,[25,[\"genbadge\",\"issuedAt\"]],false]],\"parameters\":[]},null],[0,\" \\n            \"],[4,\"if\",[[25,[\"genbadge\",\"issuer\"]]],null,{\"statements\":[[0,\"(\"],[1,[29,\"t\",[\"devFoundry.components.genbadge.issuer\"],null],false],[0,\" \"],[7,\"u\"],[9],[7,\"a\"],[12,\"href\",[25,[\"genbadge\",\"issuerUrl\"]]],[11,\"target\",\"_blank\"],[9],[1,[25,[\"genbadge\",\"issuer\"]],false],[10],[10],[0,\")\"]],\"parameters\":[]},null],[0,\"\\n            \"],[4,\"if\",[[25,[\"genbadge\",\"expiresAt\"]]],null,{\"statements\":[[0,\"[\"],[7,\"i\"],[9],[1,[29,\"t\",[\"devFoundry.components.genbadge.expiresAt\"],null],false],[0,\" \"],[1,[25,[\"genbadge\",\"expiresAt\"]],false],[10],[0,\"]\"]],\"parameters\":[]},null],[0,\" \\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"genbadge-detail-description\"],[9],[1,[25,[\"genbadge\",\"description\"]],false],[10],[0,\"\\n    \"],[10],[0,\"       \\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
+    "meta": {
+      "moduleName": "developer-network/templates/components/profile-page/genbadge-detail.hbs"
     }
   });
 
@@ -7482,8 +8135,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "j3JbRn4K",
-    "block": "{\"symbols\":[\"modal\",\"form\",\"project\"],\"statements\":[[7,\"div\"],[11,\"class\",\"project-details\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"project-details-name\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.label\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fa fa-plus-circle\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"newProjectShow\"]]],null],true],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\"]]],null,{\"statements\":[[0,\"        \"],[1,[29,\"profile-page/project-detail\",null,[[\"showControls\",\"project\",\"stageForDeletion\",\"editProjectShow\",\"editProject\",\"logoRepositoryUrl\"],[[25,[\"showControls\"]],[24,3,[]],[29,\"action\",[[24,0,[]],\"deleteProject\"],null],[25,[\"editProjectShow\"]],[29,\"action\",[[24,0,[]],\"editProject\"],null],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[3]},null],[10],[0,\"\\n\\n\"],[1,[29,\"edit-project/container\",null,[[\"newProject\",\"editProjectShow\"],[true,[25,[\"newProjectShow\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"edit-project/container\",null,[[\"newProject\",\"changeset\",\"editProjectShow\",\"logoRepositoryUrl\"],[false,[25,[\"projectChangeset\"]],[25,[\"editProjectShow\"]],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"onHidden\"],[[25,[\"deleteProjectShow\"]],\"center\",[29,\"action\",[[24,0,[]],\"cancelProjectDeletion\"],null]]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/project-container.hbs' @ L42:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmation\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/project-container.hbs' @ L45:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmDelete\"],null],false],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"confirmDeleteProject\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"\\n        \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmYes\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancelProjectDeletion\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "iEPPQyx2",
+    "block": "{\"symbols\":[\"modal\",\"form\",\"project\"],\"statements\":[[7,\"div\"],[11,\"class\",\"project-details\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"project-details-name\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.label\"],null],false],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fa fa-plus\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"newProjectShow\"]]],null],true],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\"]]],null,{\"statements\":[[0,\"        \"],[1,[29,\"profile-page/project-detail\",null,[[\"showControls\",\"project\",\"stageForDeletion\",\"editProjectShow\",\"editProject\",\"logoRepositoryUrl\"],[[25,[\"showControls\"]],[24,3,[]],[29,\"action\",[[24,0,[]],\"deleteProject\"],null],[25,[\"editProjectShow\"]],[29,\"action\",[[24,0,[]],\"editProject\"],null],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[3]},null],[10],[0,\"\\n\\n\"],[1,[29,\"edit-project/container\",null,[[\"newProject\",\"editProjectShow\"],[true,[25,[\"newProjectShow\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"edit-project/container\",null,[[\"newProject\",\"changeset\",\"editProjectShow\",\"logoRepositoryUrl\"],[false,[25,[\"projectChangeset\"]],[25,[\"editProjectShow\"]],[25,[\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"onHidden\"],[[25,[\"deleteProjectShow\"]],\"center\",[29,\"action\",[[24,0,[]],\"cancelProjectDeletion\"],null]]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/project-container.hbs' @ L42:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmation\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/project-container.hbs' @ L45:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmDelete\"],null],false],[0,\"\\n\\n\"],[4,\"bs-form\",null,[[\"onSubmit\",\"model\"],[[29,\"action\",[[24,0,[]],\"confirmDeleteProject\"],null],[25,[\"changeset\"]]]],{\"statements\":[[0,\"\\n        \"],[7,\"div\"],[11,\"style\",\"text-align: end\"],[9],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[4,\"bs-button\",null,[[\"type\",\"buttonType\",\"disabled\"],[\"primary\",\"submit\",[24,2,[\"isSubmitting\"]]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmYes\"],null],false],[0,\"\\n\"],[4,\"if\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"fa-icon\",[\"spinner\"],[[\"spin\"],[true]]],false],[0,\" \\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"unless\",[[24,2,[\"isSubmitting\"]]],null,{\"statements\":[[4,\"bs-button\",null,[[\"disabled\",\"onClick\"],[[24,2,[\"isSubmitting\"]],[29,\"action\",[[24,0,[]],\"cancelProjectDeletion\"],null]]],{\"statements\":[[0,\"                    \"],[1,[29,\"t\",[\"devFoundry.components.project.listing.confirmNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/project-container.hbs"
     }
@@ -7500,8 +8153,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "qSnXOC+p",
-    "block": "{\"symbols\":[\"technology\",\"feature\",\"lang\",\"platform\"],\"statements\":[[7,\"div\"],[11,\"class\",\"project-detail\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"project-detail-logo\"],[9],[0,\"\\n        \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"project\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"logoRepositoryUrl\"]],[25,[\"project\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProjectLogo\"]]],null]],[9],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"project-detail-controls\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"            \"],[7,\"i\"],[11,\"class\",\"fa fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"editProject\"]],[25,[\"project\"]]],null]],[9],[10],[0,\"\\n            \"],[7,\"i\"],[11,\"class\",\"fa fa-trash\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"stageForDeletion\"]],[25,[\"project\"]]],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n    \\n    \"],[7,\"div\"],[11,\"class\",\"project-detail-text\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"project-detail-name\"],[9],[0,\"\\n            \"],[7,\"div\"],[9],[0,\"\\n                \"],[1,[25,[\"project\",\"info\",\"name\"]],false],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            \"],[7,\"a\"],[12,\"href\",[25,[\"project\",\"info\",\"website\"]]],[11,\"target\",\"_blank\"],[9],[1,[25,[\"project\",\"info\",\"website\"]],false],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"status\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.projectStatuses.\",[25,[\"project\",\"status\"]]],null]],null],false],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"fromDate\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"project\",\"toDate\"]]],null,{\"statements\":[[0,\"                        (\"],[1,[25,[\"project\",\"fromDate\"]],false],[0,\" - \"],[1,[25,[\"project\",\"toDate\"]],false],[0,\")\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[1,[25,[\"project\",\"info\",\"description\"]],false],[10],[0,\"\\n    \"],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"project\",\"location\"]]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"project-detail-text\"],[9],[0,\"\\n            \"],[7,\"label\"],[11,\"class\",\"project-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"project\",\"location\",\"type\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.type\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[25,[\"project\",\"location\",\"type\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"location\",\"name\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.name\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[25,[\"project\",\"location\",\"name\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"location\",\"region\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.region\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.regions.\",[25,[\"project\",\"location\",\"region\"]]],null]],null],false],[10],[0,\"\\n                \"],[10],[0,\"            \\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\"]]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"project-detail-text\"],[9],[0,\"\\n            \"],[7,\"label\"],[11,\"class\",\"project-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.genesysPlatforms\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.genesysPlatforms.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.programmingLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.features\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.features.\",[24,2,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-details-category col-md-12\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.technologies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.technologies.\",[24,1,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n            \"],[7,\"div\"],[9],[4,\"if\",[[25,[\"project\",\"skills\",\"other\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.project.skills.other\"],null],false],[0,\" - \"],[1,[25,[\"project\",\"skills\",\"other\"]],false]],\"parameters\":[]},null],[10],[0,\"\\n        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[10],[0,\"\\n\\n\"]],\"hasEval\":false}",
+    "id": "DJP9LCrM",
+    "block": "{\"symbols\":[\"technology\",\"feature\",\"lang\",\"platform\"],\"statements\":[[7,\"div\"],[11,\"class\",\"project-detail\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"project-detail-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"details-container\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"project-detail-logo\"],[9],[0,\"\\n                \"],[7,\"img\"],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"project\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"logoRepositoryUrl\"]],[25,[\"project\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProjectLogo\"]]],null]],[9],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"project-detail-text\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"project-detail-name\"],[9],[0,\"\\n                    \"],[7,\"div\"],[9],[0,\"\\n                        \"],[1,[25,[\"project\",\"info\",\"name\"]],false],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"showControls\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"i\"],[11,\"class\",\"far fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"editProject\"]],[25,[\"project\"]]],null]],[9],[10],[0,\"\\n                            \"],[7,\"i\"],[11,\"class\",\"far fa-trash-alt\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[25,[\"stageForDeletion\"]],[25,[\"project\"]]],null]],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                    \"],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[9],[0,\"\\n                    \"],[7,\"a\"],[12,\"href\",[25,[\"project\",\"info\",\"website\"]]],[11,\"target\",\"_blank\"],[9],[1,[25,[\"project\",\"info\",\"website\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"status\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.projectStatuses.\",[25,[\"project\",\"status\"]]],null]],null],false],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"fromDate\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"project\",\"toDate\"]]],null,{\"statements\":[[0,\"                                (\"],[1,[25,[\"project\",\"fromDate\"]],false],[0,\" - \"],[1,[25,[\"project\",\"toDate\"]],false],[0,\")\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[9],[1,[25,[\"project\",\"info\",\"description\"]],false],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"customer-details\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"location\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-detail-text\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.label\"],null],false],[0,\":\"],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"project\",\"location\",\"name\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.name\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[25,[\"project\",\"location\",\"name\"]],false],[10],[0,\"\\n                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"location\",\"type\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.type\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[25,[\"project\",\"location\",\"type\"]],false],[10],[0,\"\\n                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"location\",\"region\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.location.region\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.regions.\",[25,[\"project\",\"location\",\"region\"]]],null]],null],false],[10],[0,\"\\n                        \"],[10],[0,\"            \\n\"]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"project-detail-text\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"project-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.label\"],null],false],[0,\":\"],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.genesysPlatforms\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.genesysPlatforms.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.programmingLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.features\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.features.\",[24,2,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"project\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"project-details-category\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"project-details-category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.project.skills.technologies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"project\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"span\"],[11,\"class\",\"project-details-category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.technologies.\",[24,1,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"                        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n                    \"],[7,\"div\"],[9],[4,\"if\",[[25,[\"project\",\"skills\",\"other\"]]],null,{\"statements\":[[1,[29,\"t\",[\"devFoundry.components.project.skills.other\"],null],false],[0,\" - \"],[1,[25,[\"project\",\"skills\",\"other\"]],false]],\"parameters\":[]},null],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/project-detail.hbs"
     }
@@ -7554,8 +8207,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "TZULVsU5",
-    "block": "{\"symbols\":[\"modal\"],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\"],[true,false]]],false],[0,\"\\n\"],[1,[23,\"filter-profile/container\"],false],[0,\"\\n\"],[1,[23,\"outlet\"],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"backdropClose\",\"size\"],[[25,[\"showLoggingInModal\"]],\"center\",false,\"sm\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/index.hbs' @ L19:C5) \"],null]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"logging-in-modal-container\"],[9],[0,\"\\n        \"],[1,[29,\"adaptive-g-spinner\",null,[[\"size\"],[\"medium\"]]],false],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            Logging you in... Please wait.\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "obzJxc0J",
+    "block": "{\"symbols\":[\"modal\"],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\"],[true,false]]],false],[0,\"\\n\"],[1,[23,\"filter-profile/container\"],false],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[23,\"outlet\"],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"backdropClose\",\"size\"],[[25,[\"showLoggingInModal\"]],\"center\",false,\"sm\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/index.hbs' @ L34:C5) \"],null]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"logging-in-modal-container\"],[9],[0,\"\\n        \"],[1,[29,\"adaptive-g-spinner\",null,[[\"size\"],[\"medium\"]]],false],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            Logging you in... Please wait.\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/index.hbs"
     }
@@ -7722,9 +8375,10 @@
       "components": {
         "badge": {
           "cancel": "Cancel",
-          "date": "Obtained on",
           "description": "Short Description",
           "edit": "Edit Badge",
+          "issuedAt": "Obtained on",
+          "issuer": "Issued by",
           "label": "Badge",
           "listing": {
             "confirmDelete": "Are you sure you want to delete this badge?",
@@ -7749,6 +8403,7 @@
         "enums": {
           "companyTypes": {
             "Contractor": "Self-Contractor",
+            "GenesysEmployee": "Genesys Employee",
             "GenesysPartner": "Genesys Partner",
             "ISV": "ISV",
             "Other": "Other"
@@ -8010,7 +8665,8 @@
             "DesktopClient": "Desktop Client",
             "DigitalMessaging": "Digital/Messaging",
             "Reporting": "Reporting",
-            "Voice": "Voice"
+            "Voice": "Voice",
+            "WEM": "Workforce Management"
           },
           "genesysPlatforms": {
             "PureCloud": "PureCloud",
@@ -8107,6 +8763,8 @@
           }
         },
         "filterCategory": {
+          "AND": "All",
+          "OR": "Any",
           "sfCompanyType": "Types",
           "sfCountries": "In Countries",
           "sfCountry": "Based in",
@@ -8119,7 +8777,8 @@
           "sfTechnologies": "Technologies",
           "sfUserLookingFor": "Interested In",
           "sfUserStatus": "Statuses",
-          "showAll": "Show All"
+          "showAll": "Show All",
+          "usingCondition": "Match"
         },
         "filterEntry": {
           "showOnly": "Only"
@@ -8127,6 +8786,33 @@
         "filterPanel": {
           "applyFilters": "Apply Filters",
           "resetFilters": "Reset"
+        },
+        "genbadge": {
+          "cancel": "Cancel",
+          "description": "Short Description",
+          "edit": "Edit Genesys Badge",
+          "expiresAt": "Valid until",
+          "includesCertification": "Certification",
+          "issuedAt": "Obtained on",
+          "issuedTo": "To",
+          "issuer": "Issued by",
+          "issuerUrl": "See profile",
+          "label": "Genesys Badge",
+          "lastRefresh": "Last refresh on",
+          "listing": {
+            "confirmDelete": "Are you sure you want to delete this badge?",
+            "confirmImport": "Are you sure you want to (re)import your Genesys Badges?",
+            "confirmImportNo": "Cancel",
+            "confirmImportYes": "Import",
+            "confirmNo": "Cancel",
+            "confirmYes": "Delete",
+            "confirmation": "Confirmation",
+            "label": "Genesys Badges"
+          },
+          "name": "Badge Name",
+          "new": "New Genesys Badge",
+          "save": "Save",
+          "url": "View Badge on YourAcclaim"
         },
         "logo": {
           "cancel": "Cancel",
@@ -8148,6 +8834,7 @@
             "website": "Website"
           },
           "cancel": "Cancel",
+          "contact": "Contact me",
           "contacts": {
             "bitbucket": "Bitbucket",
             "community": "Genesys Community",
@@ -8253,7 +8940,9 @@
           "sort": {
             "name": "Name",
             "platforms": "Platforms",
-            "projects": "Projects"
+            "projects": "Projects",
+            "userLookingFor": "Interested In",
+            "userStatus": "Status"
           }
         }
       },
@@ -8531,9 +9220,10 @@
       "components": {
         "badge": {
           "cancel": "Cancel",
-          "date": "Obtained on",
           "description": "Short Description",
           "edit": "Edit Badge",
+          "issuedAt": "Obtained on",
+          "issuer": "Issued by",
           "label": "Badge",
           "listing": {
             "confirmDelete": "Are you sure you want to delete this badge?",
@@ -8558,6 +9248,7 @@
         "enums": {
           "companyTypes": {
             "Contractor": "Self-Contractor",
+            "GenesysEmployee": "Genesys Employee",
             "GenesysPartner": "Genesys Partner",
             "ISV": "ISV",
             "Other": "Other"
@@ -8819,7 +9510,8 @@
             "DesktopClient": "Desktop Client",
             "DigitalMessaging": "Digital/Messaging",
             "Reporting": "Reporting",
-            "Voice": "Voice"
+            "Voice": "Voice",
+            "WEM": "Workforce Management"
           },
           "genesysPlatforms": {
             "PureCloud": "PureCloud",
@@ -8916,6 +9608,8 @@
           }
         },
         "filterCategory": {
+          "AND": "All",
+          "OR": "Any",
           "sfCompanyType": "Types",
           "sfCountries": "In Countries",
           "sfCountry": "Based in",
@@ -8928,7 +9622,8 @@
           "sfTechnologies": "Technologies",
           "sfUserLookingFor": "Interested In",
           "sfUserStatus": "Statuses",
-          "showAll": "Show All"
+          "showAll": "Show All",
+          "usingCondition": "Match"
         },
         "filterEntry": {
           "showOnly": "Only"
@@ -8936,6 +9631,33 @@
         "filterPanel": {
           "applyFilters": "Apply Filters",
           "resetFilters": "Reset"
+        },
+        "genbadge": {
+          "cancel": "Cancel",
+          "description": "Short Description",
+          "edit": "Edit Genesys Badge",
+          "expiresAt": "Valid until",
+          "includesCertification": "Certification",
+          "issuedAt": "Obtained on",
+          "issuedTo": "To",
+          "issuer": "Issued by",
+          "issuerUrl": "See profile",
+          "label": "Genesys Badge",
+          "lastRefresh": "Last refresh on",
+          "listing": {
+            "confirmDelete": "Are you sure you want to delete this badge?",
+            "confirmImport": "Are you sure you want to (re)import your Genesys Badges?",
+            "confirmImportNo": "Cancel",
+            "confirmImportYes": "Import",
+            "confirmNo": "Cancel",
+            "confirmYes": "Delete",
+            "confirmation": "Confirmation",
+            "label": "Genesys Badges"
+          },
+          "name": "Badge Name",
+          "new": "New Genesys Badge",
+          "save": "Save",
+          "url": "View Badge on YourAcclaim"
         },
         "logo": {
           "cancel": "Cancel",
@@ -9062,7 +9784,9 @@
           "sort": {
             "name": "Name",
             "platforms": "Platforms",
-            "projects": "Projects"
+            "projects": "Projects",
+            "userLookingFor": "Interested In",
+            "userStatus": "Status"
           }
         }
       },
@@ -9118,7 +9842,8 @@
           "categories": "Categorías",
           "myProfile": "Mi profil",
           "signIn": "iniciar sesión",
-          "signOut": "Cerrar sesión"
+          "signOut": "Cerrar sesión",
+          "signUp": "crear sesión"
         },
         "regionSelector": {
           "region": "Región",
@@ -9339,9 +10064,10 @@
       "components": {
         "badge": {
           "cancel": "Annuler",
-          "date": "Obtenu le",
           "description": "Brève Description",
           "edit": "Modifier Badge",
+          "issuedAt": "Obtenu le",
+          "issuer": "Décerné par",
           "label": "Badge",
           "listing": {
             "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce badge?",
@@ -9366,6 +10092,7 @@
         "enums": {
           "companyTypes": {
             "Contractor": "Auto-entrepreneur",
+            "GenesysEmployee": "Employé Genesys",
             "GenesysPartner": "Partenaire Genesys",
             "ISV": "ISV",
             "Other": "Autre"
@@ -9627,7 +10354,8 @@
             "DesktopClient": "Desktop Client",
             "DigitalMessaging": "Digital/Messaging",
             "Reporting": "Reporting",
-            "Voice": "Voice"
+            "Voice": "Voice",
+            "WEM": "Workforce Management"
           },
           "genesysPlatforms": {
             "PureCloud": "PureCloud",
@@ -9724,6 +10452,8 @@
           }
         },
         "filterCategory": {
+          "AND": "All",
+          "OR": "Any",
           "sfCompanyType": "Type",
           "sfCountries": "Pays",
           "sfCountry": "Basé en",
@@ -9736,7 +10466,8 @@
           "sfTechnologies": "Technologies",
           "sfUserLookingFor": "Intéressé par",
           "sfUserStatus": "Statut",
-          "showAll": "Tout montrer"
+          "showAll": "Tout montrer",
+          "usingCondition": "Requiert"
         },
         "filterEntry": {
           "showOnly": "Seulement"
@@ -9744,6 +10475,33 @@
         "filterPanel": {
           "applyFilters": "Appliquer Filtres",
           "resetFilters": "Réinitialiser"
+        },
+        "genbadge": {
+          "cancel": "Annuler",
+          "description": "Brève Description",
+          "edit": "Modifier Genesys Badge",
+          "expiresAt": "Valide jusqu'au",
+          "includesCertification": "Certification",
+          "issuedAt": "Obtenu le",
+          "issuedTo": "A",
+          "issuer": "Décerné par",
+          "issuerUrl": "Voir profil",
+          "label": "Genesys Badge",
+          "lastRefresh": "Dernière mise à jour le",
+          "listing": {
+            "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce badge?",
+            "confirmImport": "Êtes-vous sûr de vouloir (ré)importer vos badges Genesys?",
+            "confirmImportNo": "Annuler",
+            "confirmImportYes": "Importer",
+            "confirmNo": "Annuler",
+            "confirmYes": "Effacer",
+            "confirmation": "Confirmation",
+            "label": "Genesys Badges"
+          },
+          "name": "Nom du Badge",
+          "new": "Nouveau Genesys Badge",
+          "save": "Confirmer",
+          "url": "Voir le Badge sur YourAcclaim"
         },
         "logo": {
           "cancel": "Annuler",
@@ -9870,7 +10628,9 @@
           "sort": {
             "name": "Nom",
             "platforms": "Platformes",
-            "projects": "Projets"
+            "projects": "Projets",
+            "userLookingFor": "Intéressé par",
+            "userStatus": "Statut"
           }
         }
       },
@@ -9926,7 +10686,8 @@
           "categories": "Catégories",
           "myProfile": "Mon profil",
           "signIn": "Se connecter",
-          "signOut": "Déconnexion"
+          "signOut": "Déconnexion",
+          "signUp": "S'enregistrer"
         },
         "regionSelector": {
           "region": "Région",
@@ -10175,6 +10936,33 @@
   };
   _exports.default = _default;
 });
+;define("developer-network/validations/genbadge", ["exports", "ember-changeset-validations/validators"], function (_exports, _validators) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+  var _default = {
+    "name": [(0, _validators.validatePresence)({
+      presence: true,
+      message: 'Name should not be blank.'
+    }), (0, _validators.validateLength)({
+      min: 2,
+      message: 'Name is too short.'
+    })],
+    "url": [(0, _validators.validateFormat)({
+      allowBlank: true,
+      regex: /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/,
+      message: 'Incorrect URL format.'
+    })],
+    "description": [(0, _validators.validateLength)({
+      max: 512,
+      min: 0
+    })]
+  };
+  _exports.default = _default;
+});
 ;define("developer-network/validations/profile", ["exports", "ember-changeset-validations/validators"], function (_exports, _validators) {
   "use strict";
 
@@ -10264,7 +11052,7 @@ catch(err) {
 
 ;
           if (!runningTests) {
-            require("developer-network/app")["default"].create({"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+e0177a41"});
+            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+c6a3ca03"});
           }
         
 //# sourceMappingURL=developer-network.map
