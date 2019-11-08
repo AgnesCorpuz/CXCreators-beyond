@@ -10062,7 +10062,7 @@ h3 {
   bottom: 0;
   right: 0;
   opacity: 0;
-  background-image: url("assets/img/stars.jpg");
+  background-image: url("img/stars.jpg");
   background-size: 100%;
   content: "";
   z-index: -1;
@@ -11011,7 +11011,7 @@ LOGGIN IN MODAL
   height: 800px;
   overflow: hidden;
   z-index: 500;
-  background: url("assets/img/header.png") 50% 90% no-repeat;
+  background: url("img/header.png") 50% 90% no-repeat;
   background-size: cover;
   align-items: center;
   justify-content: center;
