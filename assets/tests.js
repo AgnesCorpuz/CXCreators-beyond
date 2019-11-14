@@ -526,6 +526,30 @@ define("developer-network/tests/integration/components/filter-profile/search-bar
     });
   });
 });
+define("developer-network/tests/integration/components/filter-profile/search-panel-test", ["qunit", "ember-qunit", "@ember/test-helpers"], function (_qunit, _emberQunit, _testHelpers) {
+  "use strict";
+
+  (0, _qunit.module)('Integration | Component | filter-profile/search-panel', function (hooks) {
+    (0, _emberQunit.setupRenderingTest)(hooks);
+    (0, _qunit.test)('it renders', async function (assert) {
+      // Set any properties with this.set('myProperty', 'value');
+      // Handle any actions with this.set('myAction', function(val) { ... });
+      await (0, _testHelpers.render)(Ember.HTMLBars.template({
+        "id": "beVDZcKo",
+        "block": "{\"symbols\":[],\"statements\":[[1,[23,\"filter-profile/search-panel\"],false]],\"hasEval\":false}",
+        "meta": {}
+      }));
+      assert.equal(this.element.textContent.trim(), ''); // Template block usage:
+
+      await (0, _testHelpers.render)(Ember.HTMLBars.template({
+        "id": "Fevp02WK",
+        "block": "{\"symbols\":[],\"statements\":[[0,\"\\n\"],[4,\"filter-profile/search-panel\",null,null,{\"statements\":[[0,\"        template block text\\n\"]],\"parameters\":[]},null],[0,\"    \"]],\"hasEval\":false}",
+        "meta": {}
+      }));
+      assert.equal(this.element.textContent.trim(), 'template block text');
+    });
+  });
+});
 define("developer-network/tests/integration/components/filter-profile/search-results-test", ["qunit", "ember-qunit", "@ember/test-helpers"], function (_qunit, _emberQunit, _testHelpers) {
   "use strict";
 
@@ -838,7 +862,7 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('components/container/home-hero.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'components/container/home-hero.js should pass ESLint\n\n5:10 - \'alias\' is defined but never used. (no-unused-vars)\n21:20 - Don\'t use observers if possible (ember/no-observers)');
+    assert.ok(false, 'components/container/home-hero.js should pass ESLint\n\n5:10 - \'alias\' is defined but never used. (no-unused-vars)\n24:20 - Don\'t use observers if possible (ember/no-observers)');
   });
   QUnit.test('components/content-panel.js', function (assert) {
     assert.expect(1);
@@ -898,7 +922,11 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('components/filter-profile/search-bar.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'components/filter-profile/search-bar.js should pass ESLint\n\n16:20 - Don\'t use observers if possible (ember/no-observers)');
+    assert.ok(false, 'components/filter-profile/search-bar.js should pass ESLint\n\n18:20 - Don\'t use observers if possible (ember/no-observers)');
+  });
+  QUnit.test('components/filter-profile/search-panel.js', function (assert) {
+    assert.expect(1);
+    assert.ok(false, 'components/filter-profile/search-panel.js should pass ESLint\n\n21:20 - Don\'t use observers if possible (ember/no-observers)\n45:17 - \'w\' is assigned a value but never used. (no-unused-vars)');
   });
   QUnit.test('components/filter-profile/search-results.js', function (assert) {
     assert.expect(1);
@@ -1038,11 +1066,11 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('routes/index.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'routes/index.js should pass ESLint\n\n23:29 - Unexpected console statement. (no-console)');
+    assert.ok(false, 'routes/index.js should pass ESLint\n\n24:29 - Unexpected console statement. (no-console)');
   });
   QUnit.test('routes/profile/index.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'routes/profile/index.js should pass ESLint\n\n2:10 - \'computed\' is defined but never used. (no-unused-vars)\n15:13 - \'left\' is assigned a value but never used. (no-unused-vars)\n28:18 - Don\'t use observers if possible (ember/no-observers)\n41:25 - Unexpected console statement. (no-console)\n63:25 - Unexpected console statement. (no-console)');
+    assert.ok(false, 'routes/profile/index.js should pass ESLint\n\n2:10 - \'computed\' is defined but never used. (no-unused-vars)\n15:13 - \'left\' is assigned a value but never used. (no-unused-vars)\n16:13 - \'top\' is assigned a value but never used. (no-unused-vars)\n18:13 - \'h\' is assigned a value but never used. (no-unused-vars)\n32:18 - Don\'t use observers if possible (ember/no-observers)\n45:25 - Unexpected console statement. (no-console)\n67:25 - Unexpected console statement. (no-console)');
   });
   QUnit.test('serializers/application.js', function (assert) {
     assert.expect(1);
@@ -1220,6 +1248,10 @@ define("developer-network/tests/lint/tests.lint-test", [], function () {
   QUnit.test('integration/components/filter-profile/search-bar-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/components/filter-profile/search-bar-test.js should pass ESLint\n\n');
+  });
+  QUnit.test('integration/components/filter-profile/search-panel-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/components/filter-profile/search-panel-test.js should pass ESLint\n\n');
   });
   QUnit.test('integration/components/filter-profile/search-results-test.js', function (assert) {
     assert.expect(1);
