@@ -7273,7 +7273,9 @@
 
     platformsAscending() {
       return {
-        "profile.skills.genesysPlatforms.keyword": {
+        "_script": {
+          "script": "doc['profile.skills.genesysPlatforms.keyword'].length",
+          "type": "number",
           "order": "asc"
         }
       };
@@ -7281,7 +7283,9 @@
 
     platformsDescending() {
       return {
-        "profile.skills.genesysPlatforms.keyword": {
+        "_script": {
+          "script": "doc['profile.skills.genesysPlatforms.keyword'].length",
+          "type": "number",
           "order": "desc"
         }
       };
@@ -11135,7 +11139,7 @@ catch(err) {
 
 ;
           if (!runningTests) {
-            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+5ef7c950"});
+            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+25440f07"});
           }
         
 //# sourceMappingURL=developer-network.map
