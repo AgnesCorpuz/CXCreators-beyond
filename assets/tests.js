@@ -1060,13 +1060,25 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
     assert.expect(1);
     assert.ok(true, 'router.js should pass ESLint\n\n');
   });
+  QUnit.test('routes/about.js', function (assert) {
+    assert.expect(1);
+    assert.ok(false, 'routes/about.js should pass ESLint\n\n3:16 - Use import Route from \'@ember/routing/route\'; instead of using Ember.Route (ember/new-module-imports)');
+  });
   QUnit.test('routes/application.js', function (assert) {
     assert.expect(1);
     assert.ok(false, 'routes/application.js should pass ESLint\n\n2:10 - \'observer\' is defined but never used. (no-unused-vars)');
   });
+  QUnit.test('routes/getting-started.js', function (assert) {
+    assert.expect(1);
+    assert.ok(false, 'routes/getting-started.js should pass ESLint\n\n3:16 - Use import Route from \'@ember/routing/route\'; instead of using Ember.Route (ember/new-module-imports)');
+  });
   QUnit.test('routes/index.js', function (assert) {
     assert.expect(1);
     assert.ok(false, 'routes/index.js should pass ESLint\n\n24:29 - Unexpected console statement. (no-console)');
+  });
+  QUnit.test('routes/page-not-found.js', function (assert) {
+    assert.expect(1);
+    assert.ok(false, 'routes/page-not-found.js should pass ESLint\n\n3:16 - Use import Route from \'@ember/routing/route\'; instead of using Ember.Route (ember/new-module-imports)');
   });
   QUnit.test('routes/profile/index.js', function (assert) {
     assert.expect(1);
@@ -1106,7 +1118,7 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('services/authentication.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'services/authentication.js should pass ESLint\n\n14:8 - \'Ember\' is defined but never used. (no-unused-vars)\n18:10 - \'run\' is defined but never used. (no-unused-vars)\n20:17 - \'Promise\' is defined but never used. (no-unused-vars)\n60:3 - Unexpected console statement. (no-console)\n121:6 - Unexpected console statement. (no-console)\n126:6 - Unexpected console statement. (no-console)\n129:6 - Unexpected console statement. (no-console)\n132:6 - Unexpected console statement. (no-console)\n135:6 - Unexpected console statement. (no-console)\n173:3 - Unexpected console statement. (no-console)\n202:8 - Unexpected console statement. (no-console)\n220:9 - Unexpected console statement. (no-console)\n230:8 - Unexpected console statement. (no-console)\n234:7 - Unexpected console statement. (no-console)\n243:41 - \'reject\' is defined but never used. (no-unused-vars)\n257:4 - \'auth\' is assigned a value but never used. (no-unused-vars)\n258:7 - \'that\' is assigned a value but never used. (no-unused-vars)\n264:6 - Unexpected console statement. (no-console)\n264:85 - \'err\' is not defined. (no-undef)\n268:5 - Unexpected console statement. (no-console)\n273:4 - Unexpected console statement. (no-console)\n298:4 - \'auth\' is assigned a value but never used. (no-unused-vars)\n302:4 - Unexpected console statement. (no-console)\n306:6 - Unexpected console statement. (no-console)\n310:6 - Unexpected console statement. (no-console)\n315:4 - Unexpected console statement. (no-console)\n330:4 - Unexpected console statement. (no-console)\n334:5 - Unexpected console statement. (no-console)\n339:6 - Unexpected console statement. (no-console)\n341:6 - Unexpected console statement. (no-console)\n354:6 - Unexpected console statement. (no-console)\n360:5 - Unexpected console statement. (no-console)\n366:4 - Unexpected console statement. (no-console)');
+    assert.ok(false, 'services/authentication.js should pass ESLint\n\n14:8 - \'Ember\' is defined but never used. (no-unused-vars)\n18:10 - \'run\' is defined but never used. (no-unused-vars)\n20:17 - \'Promise\' is defined but never used. (no-unused-vars)\n60:3 - Unexpected console statement. (no-console)\n121:6 - Unexpected console statement. (no-console)\n126:6 - Unexpected console statement. (no-console)\n129:6 - Unexpected console statement. (no-console)\n132:6 - Unexpected console statement. (no-console)\n135:6 - Unexpected console statement. (no-console)\n187:3 - Unexpected console statement. (no-console)\n216:8 - Unexpected console statement. (no-console)\n234:9 - Unexpected console statement. (no-console)\n244:8 - Unexpected console statement. (no-console)\n248:7 - Unexpected console statement. (no-console)\n257:41 - \'reject\' is defined but never used. (no-unused-vars)\n271:4 - \'auth\' is assigned a value but never used. (no-unused-vars)\n272:7 - \'that\' is assigned a value but never used. (no-unused-vars)\n278:6 - Unexpected console statement. (no-console)\n278:85 - \'err\' is not defined. (no-undef)\n282:5 - Unexpected console statement. (no-console)\n287:4 - Unexpected console statement. (no-console)\n312:4 - \'auth\' is assigned a value but never used. (no-unused-vars)\n316:4 - Unexpected console statement. (no-console)\n320:6 - Unexpected console statement. (no-console)\n324:6 - Unexpected console statement. (no-console)\n329:4 - Unexpected console statement. (no-console)\n344:4 - Unexpected console statement. (no-console)\n348:5 - Unexpected console statement. (no-console)\n353:6 - Unexpected console statement. (no-console)\n355:6 - Unexpected console statement. (no-console)\n368:6 - Unexpected console statement. (no-console)\n374:5 - Unexpected console statement. (no-console)\n380:4 - Unexpected console statement. (no-console)');
   });
   QUnit.test('services/category-enums-service.js', function (assert) {
     assert.expect(1);

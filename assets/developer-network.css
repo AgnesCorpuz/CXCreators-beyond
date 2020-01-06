@@ -12166,6 +12166,35 @@ LOGGIN IN MODAL
 .profile-card-outer-container .card-container .card-icon-container img.profile-image.Busy {
   border-color: #FF0200;
 }
+.profile-card-outer-container .card-container .card-icon-container img {
+  border-radius: 50%;
+  transition-duration: 0.35s;
+  transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+.profile-card-outer-container .card-container .card-icon-container img:hover {
+  border-radius: 20%;
+}
+.profile-card-outer-container .card-container .card-icon-container img.profileType-logo {
+  border-radius: 0;
+  width: 30px;
+  height: 30px;
+  position: absolute;
+  left: 15px;
+  top: 15px !important;
+  z-index: 10;
+  background-color: #f3f3f3;
+}
+@media (max-width: 767px) {
+  .profile-card-outer-container .card-container .card-icon-container img.profileType-logo {
+    top: 10px;
+    left: 100px;
+  }
+}
+@media (min-width: 768px) {
+  .profile-card-outer-container .card-container .card-icon-container img.profileType-logo {
+    top: 10px;
+  }
+}
 .profile-card-outer-container .card-container .card-title-desc-container {
   width: 100%;
   padding: 15px 20px;
@@ -12719,8 +12748,15 @@ LOGGIN IN MODAL
   }
 }
 
-.genbadge {
+.badges .genbadge {
+  flex: 0 0 50%;
   margin: 10px;
+  padding-right: 20px;
+}
+.badges .empty-badge-container .genbadge {
+  flex: 0 0 50%;
+  margin: 10px;
+  padding-right: 0px !important;
 }
 
 .genbadge-details {
@@ -12767,7 +12803,6 @@ LOGGIN IN MODAL
 
 .genbadge-detail {
   margin: 10px 0px 10px 0px;
-  padding: 10px 50px 10px 0px;
   transition-duration: 0.1s;
   overflow: auto;
   font: 16px Roboto;

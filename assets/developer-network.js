@@ -807,124 +807,6 @@
   }];
   _exports.default = _default;
 });
-;define("developer-network/cldrs/es", ["exports"], function (_exports) {
-  "use strict";
-
-  Object.defineProperty(_exports, "__esModule", {
-    value: true
-  });
-  _exports.default = void 0;
-
-  /*jslint eqeq: true*/
-  var _default = [{
-    "locale": "es",
-    "pluralRuleFunction": function (n, ord) {
-      if (ord) return "other";
-      return n == 1 ? "one" : "other";
-    },
-    "fields": {
-      "year": {
-        "displayName": "año",
-        "relative": {
-          "0": "este año",
-          "1": "el próximo año",
-          "-1": "el año pasado"
-        },
-        "relativeTime": {
-          "future": {
-            "one": "dentro de {0} año",
-            "other": "dentro de {0} años"
-          },
-          "past": {
-            "one": "hace {0} año",
-            "other": "hace {0} años"
-          }
-        }
-      },
-      "month": {
-        "displayName": "mes",
-        "relative": {
-          "0": "este mes",
-          "1": "el próximo mes",
-          "-1": "el mes pasado"
-        },
-        "relativeTime": {
-          "future": {
-            "one": "dentro de {0} mes",
-            "other": "dentro de {0} meses"
-          },
-          "past": {
-            "one": "hace {0} mes",
-            "other": "hace {0} meses"
-          }
-        }
-      },
-      "day": {
-        "displayName": "día",
-        "relative": {
-          "0": "hoy",
-          "1": "mañana",
-          "2": "pasado mañana",
-          "-2": "anteayer",
-          "-1": "ayer"
-        },
-        "relativeTime": {
-          "future": {
-            "one": "dentro de {0} día",
-            "other": "dentro de {0} días"
-          },
-          "past": {
-            "one": "hace {0} día",
-            "other": "hace {0} días"
-          }
-        }
-      },
-      "hour": {
-        "displayName": "hora",
-        "relativeTime": {
-          "future": {
-            "one": "dentro de {0} hora",
-            "other": "dentro de {0} horas"
-          },
-          "past": {
-            "one": "hace {0} hora",
-            "other": "hace {0} horas"
-          }
-        }
-      },
-      "minute": {
-        "displayName": "minuto",
-        "relativeTime": {
-          "future": {
-            "one": "dentro de {0} minuto",
-            "other": "dentro de {0} minutos"
-          },
-          "past": {
-            "one": "hace {0} minuto",
-            "other": "hace {0} minutos"
-          }
-        }
-      },
-      "second": {
-        "displayName": "segundo",
-        "relative": {
-          "0": "ahora"
-        },
-        "relativeTime": {
-          "future": {
-            "one": "dentro de {0} segundo",
-            "other": "dentro de {0} segundos"
-          },
-          "past": {
-            "one": "hace {0} segundo",
-            "other": "hace {0} segundos"
-          }
-        }
-      }
-    }
-  }];
-  _exports.default = _default;
-});
 ;define("developer-network/cldrs/fr", ["exports"], function (_exports) {
   "use strict";
 
@@ -1966,8 +1848,8 @@
         this.get('searchService').search(this.get('searchValue'));
       },
 
-      signinHostedUI() {
-        let url = this.get('authentication').getUrlHostedUI();
+      signinAuthenticationUI() {
+        let url = this.get('authentication').getUrlAuthenticationUI();
         window.location.assign(url);
       }
 
@@ -3648,8 +3530,13 @@
         auth.logout().then(() => this.router.transitionTo("index"));
       },
 
-      signinHostedUI() {
-        let url = this.get('authentication').getUrlHostedUI();
+      signinAuthenticationUI() {
+        let url = this.get('authentication').getUrlAuthenticationUI();
+        window.location.assign(url);
+      },
+
+      signupUI() {
+        let url = this.get('authentication').getUrlSignUp();
         window.location.assign(url);
       }
 
@@ -3981,7 +3868,14 @@
   });
   _exports.default = void 0;
 
-  var _default = Ember.Component.extend({});
+  var _default = Ember.Component.extend({
+    hasSkill: Ember.computed('model.user.profile.skills.{genesysPlatforms,programmingLanguages,features,technologies,proficiencies}', 'model.user.profile.skills.other.{knowledge,industryKnowledge,certifications}', function () {
+      return this.get('model.user.profile.skills.programmingLanguages').length > 0 || this.get('model.user.profile.skills.genesysPlatforms').length > 0 || this.get('model.user.profile.skills.features').length > 0 || this.get('model.user.profile.skills.technologies').length > 0 || this.get('model.user.profile.skills.proficiencies').length > 0 || this.get('model.user.profile.skills.other.knowledge').length > 0 || this.get('model.user.profile.skills.other.industryKnowledge').length > 0 || this.get('model.user.profile.skills.other.certifications').length > 0;
+    }),
+    hasLanguage: Ember.computed('model.user.profile.location.{postalCode,country,countries,regions,spokenLanguages}', function () {
+      return this.get('model.user.profile.location.postalCode').length > 0 || this.get('model.user.profile.location.country').length > 0 || this.get('model.user.profile.location.countries').length > 0 || this.get('model.user.profile.location.regions').length > 0 || this.get('model.user.profile.location.spokenLanguages').length > 0;
+    })
+  });
 
   _exports.default = _default;
 });
@@ -6112,9 +6006,29 @@
 
     this.route('profile', {
       path: '/profile/:profile_esid'
-    }, function () {});
+    }, function () {}); // Default route - unknown url
+
+    this.route('page-not-found', {
+      path: '/*'
+    });
   });
   var _default = Router;
+  _exports.default = _default;
+});
+;define("developer-network/routes/about", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.Route.extend({
+    activate() {// window.scrollTo(0,550);
+    }
+
+  });
+
   _exports.default = _default;
 });
 ;define("developer-network/routes/application", ["exports"], function (_exports) {
@@ -6130,6 +6044,22 @@
 
     init() {
       this._super(...arguments);
+    }
+
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/routes/getting-started", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.Route.extend({
+    activate() {// window.scrollTo(0,550);
     }
 
   });
@@ -6165,6 +6095,23 @@
       }
 
     }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/routes/page-not-found", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.Route.extend({
+    activate() {// window.scrollTo(0,550);
+      //window.scrollTo(0, $('page-not-found-container').offset().top);
+    }
+
   });
 
   _exports.default = _default;
@@ -6714,8 +6661,21 @@
       this.checkSignedIn();
     },
 
-    getUrlHostedUI() {
-      let url = 'https://' + this.get('environmentService.cfgBackend.awsCognitoDomain') + '/login?redirect_uri=' + this.get('environmentService.cfgBackend.awsRedirectSignin') + '&response_type=' + this.get('environmentService.cfgBackend.awsResponseType') + '&client_id=' + this.get('environmentService.cfgBackend.awsClientId');
+    getUrlAuthenticationUI() {
+      let useHostedUI = this.get('environmentService.cfgBackend.awsUseCognitoHostedUI');
+      let url;
+
+      if (useHostedUI.toLowerCase() == 'true') {
+        url = 'https://' + this.get('environmentService.cfgBackend.awsCognitoDomain') + '/login?redirect_uri=' + this.get('environmentService.cfgBackend.awsRedirectSignin') + '&response_type=' + this.get('environmentService.cfgBackend.awsResponseType') + '&client_id=' + this.get('environmentService.cfgBackend.awsClientId');
+      } else {
+        url = 'https://' + this.get('environmentService.cfgBackend.awsCognitoDomain') + '/oauth2/authorize?identity_provider=' + this.get('environmentService.cfgBackend.awsFederatedIdentityProvider') + '&redirect_uri=' + this.get('environmentService.cfgBackend.awsRedirectSignin') + '&response_type=TOKEN&client_id=' + this.get('environmentService.cfgBackend.awsClientId') + '&scope=aws.cognito.signin.user.admin%20email%20openid%20phone%20profile';
+      }
+
+      return url;
+    },
+
+    getUrlSignUp() {
+      let url = this.get('environmentService.cfgBackend.signupUrl');
       return url;
     },
 
@@ -6922,16 +6882,16 @@
   });
   _exports.default = void 0;
   const _genesysPlatforms = ["PureCloud", "PureConnect", "PureEngage"];
-  const _programmingLanguages = ["CSharp", "VBSharp", "ObjectiveC", "CPlus", "Java", "HTMLCSS", "ASPNet", "HTML5", "jQuery", "Javascript", "ActionScript", "Nodejs", "Perl", "PHP", "Python", "Ruby"];
+  const _programmingLanguages = ["CSharp", "VBSharp", "ObjectiveC", "CPlus", "Java", "HTMLCSS", "ASPNet", "HTML5", "jQuery", "Javascript", "ActionScript", "Nodejs", "Perl", "PHP", "Python", "Ruby", "Swift", "Go"];
   const _spokenLanguages = ["Czech", "Danish", "Dutch", "English", "Estonian", "Finnish", "French", "German", "Hungarian", "Italian", "Japanese", "Korean", "Latvian", "Lithuanian", "Polish", "Portuguese", "Russian", "SimplifiedChinese", "Spanish", "Swedish", "Thai", "TraditionalChinese", "Turkish"];
   const _proficiencies = ["Architect", "Scripting", "Developer", "Administration", "ProjectManager"];
-  const _features = ["Voice", "DigitalMessaging", "DesktopClient", "Reporting", "BusinessOptimization", "CallRecording", "WEM"];
-  const _technologies = ["Azure", "GoogleCloud", "MySQL", "NoSQL", "iPhone", "Android", "Bots", "AIML", "Facebook", "Twitter", "WhatsApp", "VoIP", "SMS", "EMail", "SFCOM", "AWS"];
+  const _features = ["Voice", "DigitalMessaging", "DesktopClient", "Reporting", "BusinessOptimization", "CallRecording", "Outbound", "Bots", "WEM"];
+  const _technologies = ["Azure", "GoogleCloud", "MySQL", "MSFTSQL", "NoSQL", "iPhone", "Android", "Bots", "DialogFlow", "AIML", "Facebook", "Twitter", "WhatsApp", "VoIP", "SMS", "EMail", "SFCOM", "AWS"];
   const _regions = ["LATAM", "NA", "APAC", "EMEA"];
   const _countries = ["AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM", "AW", "AU", "AT", "AZ", "BS", "BH", "BD", "BB", "BY", "BE", "BZ", "BJ", "BM", "BT", "BO", "BQ", "BA", "BW", "BV", "BR", "IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD", "CK", "CR", "CI", "HR", "CU", "CW", "CY", "CZ", "DK", "DJ", "DM", "DO", "EC", "EG", "SV", "GQ", "ER", "EE", "ET", "FK", "FO", "FJ", "FI", "FR", "GF", "PF", "TF", "GA", "GM", "GE", "DE", "GH", "GI", "GR", "GL", "GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY", "HT", "HM", "VA", "HN", "HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IM", "IL", "IT", "JM", "JP", "JE", "JO", "KZ", "KE", "KI", "KP", "KR", "KW", "KG", "LA", "LV", "LB", "LS", "LR", "LY", "LI", "LT", "LU", "MO", "MK", "MG", "MW", "MY", "MV", "ML", "MT", "MH", "MQ", "MR", "MU", "YT", "MX", "FM", "MD", "MC", "MN", "ME", "MS", "MA", "MZ", "MM", "NA", "NR", "NP", "NL", "NC", "NZ", "NI", "NE", "NG", "NU", "NF", "MP", "NO", "OM", "PK", "PW", "PS", "PA", "PG", "PY", "PE", "PH", "PN", "PL", "PT", "PR", "QA", "RE", "RO", "RU", "RW", "BL", "SH", "KN", "LC", "MF", "PM", "VC", "WS", "SM", "ST", "SA", "SN", "RS", "SC", "SL", "SG", "SX", "SK", "SI", "SB", "SO", "ZA", "GS", "SS", "ES", "LK", "SD", "SR", "SJ", "SZ", "SE", "CH", "SY", "TW", "TJ", "TZ", "TH", "TL", "TG", "TK", "TO", "TT", "TN", "TR", "TM", "TC", "TV", "UG", "UA", "AE", "GB", "US", "UM", "UY", "UZ", "VU", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZW"];
   const _userLookingFor = ["ContractWork", "FullTimeWork"];
   const _userStatuses = ["Undefined", "Available", "Busy"];
-  const _companyTypes = ["GenesysPartner", "ISV", "Contractor", "GenesysEmployee", "Other"];
+  const _companyTypes = ["GenesysPartner", "Company", "Contractor", "Student", "GenesysEmployee", "Other"];
   const _projectStatuses = ["InProgress", "Completed"];
 
   var _default = Ember.Service.extend({
@@ -7199,7 +7159,10 @@
         awsRedirectSignin: urlSignin,
         awsRedirectSignout: urlSignout,
         awsResponseType: _environment.default.AWS_RESPONSE_TYPE,
-        awsAPIGatewayUrl: _environment.default.AWS_APIGW_URL
+        awsAPIGatewayUrl: _environment.default.AWS_APIGW_URL,
+        awsUseCognitoHostedUI: _environment.default.AWS_USE_COGNITO_HOSTED_UI,
+        awsFederatedIdentityProvider: _environment.default.AWS_FEDERATED_IDENTITY_PROVIDER,
+        signupUrl: _environment.default.SIGNUP_URL
       });
       let esUrl = _environment.default.SEARCH_ES_HOST + '/' + _environment.default.SEARCH_ES_INDEX + '/' + _environment.default.SEARCH_ES_DOCTYPE + '/';
       this.set('search', {
@@ -7566,8 +7529,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "xSHdcsyA",
-    "block": "{\"symbols\":[],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\",\"contentPanelTitle\"],[false,true,\"About Creators\"]]],false],[0,\"\\n\"],[4,\"content-panel\",null,null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"about-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"about-content\"],[9],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"img\"],[11,\"class\",\"img-left\"],[11,\"src\",\"assets/img/creators-logo.png\"],[9],[10],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"p\"],[9],[7,\"h1\"],[9],[0,\"Coming Soon...\"],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
+    "id": "8X6pjcbW",
+    "block": "{\"symbols\":[],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\",\"contentPanelTitle\"],[false,true,\"About Creators\"]]],false],[0,\"\\n\"],[4,\"content-panel\",null,null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"about-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"about-content\"],[9],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"img\"],[11,\"class\",\"img-left\"],[11,\"src\",\"assets/img/beyond-logo.png\"],[9],[10],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"p\"],[9],[7,\"h1\"],[9],[1,[29,\"t\",[\"devFoundry.header.staticPages.about\"],null],false],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/about.hbs"
     }
@@ -7620,8 +7583,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "JO7M90TJ",
-    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"home-hero-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"logo-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"index\"],null,{\"statements\":[[0,\"                \"],[7,\"img\"],[11,\"class\",\"logo\"],[11,\"src\",\"assets/img/beyond-logo-white.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"login-widget\"],[9],[1,[23,\"global/login-widget\"],false],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"home-hero-inner-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"hero-title\"],[9],[0,\"\\n            Create\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"hero-subtitle\"],[9],[0,\"\\n            A network of CX talent with the expertise to drive a variety of projects and initiatives.\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"unless\",[[25,[\"authentication\",\"isLoggedIn\"]]],null,{\"statements\":[[0,\"                \"],[7,\"button\"],[11,\"class\",\"genesys-btn long white-border\"],[9],[0,\"\\n                    Get Started\\n                \"],[3,\"action\",[[24,0,[]],\"signinHostedUI\"]],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
+    "id": "kAQKcZed",
+    "block": "{\"symbols\":[],\"statements\":[[7,\"div\"],[11,\"class\",\"home-hero-container\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"logo-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"index\"],null,{\"statements\":[[0,\"                \"],[7,\"img\"],[11,\"class\",\"logo\"],[11,\"src\",\"assets/img/beyond-logo-white.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"login-widget\"],[9],[1,[23,\"global/login-widget\"],false],[10],[0,\"\\n    \"],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"home-hero-inner-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"hero-title\"],[9],[0,\"\\n            Create\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"hero-subtitle\"],[9],[0,\"\\n            A network of CX talent with the expertise to drive a variety of projects and initiatives.\\n        \"],[10],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n\"],[4,\"unless\",[[25,[\"authentication\",\"isLoggedIn\"]]],null,{\"statements\":[[0,\"                \"],[7,\"button\"],[11,\"class\",\"genesys-btn long white-border\"],[9],[0,\"\\n                    Get Started\\n                \"],[3,\"action\",[[24,0,[]],\"signinAuthenticationUI\"]],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/container/home-hero.hbs"
     }
@@ -7898,8 +7861,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "MwSXJ5TJ",
-    "block": "{\"symbols\":[\"platform\",\"lang\",\"lang\"],\"statements\":[[4,\"if\",[[25,[\"isVisible\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"card-container\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"profile\",[25,[\"user\",\"id\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"card-icon-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"user\",\"profile\",\"logoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[29,\"concat\",[[25,[\"user\",\"logoRepositoryUrl\"]],[25,[\"user\",\"profile\",\"logoUrl\"]]],null]],[12,\"class\",[30,[\"profile-image \",[25,[\"user\",\"profile\",\"bio\",\"status\"]]]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],[12,\"class\",[30,[\"profile-image \",[25,[\"user\",\"profile\",\"bio\",\"status\"]]]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"card-title-desc-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-title\"],[9],[0,\"\\n                    \"],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"name\"]],20],null],false],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-position\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"position\"]],20],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-programming\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                           \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-spoken\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[4,\"each\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"span\"],[9],[1,[24,2,[]],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"platform-container\"],[9],[0,\"\\n\"],[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureCloud\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/purecloud.png\"],[11,\"title\",\"PureCloud\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureConnect\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureconnect.png\"],[11,\"title\",\"PureConnect\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureengage.png\"],[11,\"title\",\"PureEngage\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[1]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
+    "id": "SEEuGW4K",
+    "block": "{\"symbols\":[\"platform\",\"lang\",\"lang\"],\"statements\":[[4,\"if\",[[25,[\"isVisible\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"card-container\"],[9],[0,\"\\n\"],[4,\"link-to\",[\"profile\",[25,[\"user\",\"id\"]]],null,{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"card-icon-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"user\",\"profile\",\"logoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[29,\"concat\",[[25,[\"user\",\"logoRepositoryUrl\"]],[25,[\"user\",\"profile\",\"logoUrl\"]]],null]],[12,\"class\",[30,[\"profile-image \",[25,[\"user\",\"profile\",\"bio\",\"status\"]]]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],[12,\"class\",[30,[\"profile-image \",[25,[\"user\",\"profile\",\"bio\",\"status\"]]]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]}],[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"type\"]],\"GenesysPartner\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-partner.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"type\"]],\"Company\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-company.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"type\"]],\"Contractor\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-contractor.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"type\"]],\"Student\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-student.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"type\"]],\"GenesysEmployee\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-genesys2.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"user\",\"profile\",\"bio\",\"type\"]],\"Other\"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-other.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                    \"],[7,\"img\"],[11,\"class\",\"profileType-logo\"],[11,\"src\",\"assets/img/profile-unknown.png\"],[11,\"alt\",\"\"],[9],[10],[0,\"\\n                \"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"card-title-desc-container\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-title\"],[9],[0,\"\\n                    \"],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"name\"]],20],null],false],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-position\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[1,[29,\"limit-text\",[[25,[\"user\",\"profile\",\"bio\",\"position\"]],20],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-programming\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                           \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"card-spoken\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[4,\"each\",[[25,[\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"span\"],[9],[1,[24,2,[]],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null]],\"parameters\":[]},null],[0,\"                \"],[10],[0,\"\\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"platform-container\"],[9],[0,\"\\n\"],[4,\"each\",[[25,[\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureCloud\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/purecloud.png\"],[11,\"title\",\"PureCloud\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[24,1,[]],\"PureConnect\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureconnect.png\"],[11,\"title\",\"PureConnect\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"src\",\"assets/img/pureengage.png\"],[11,\"title\",\"PureEngage\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[1]},null],[0,\"            \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/filter-profile/profile-card.hbs"
     }
@@ -8078,8 +8041,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "eRoe/qV7",
-    "block": "{\"symbols\":[\"dd\",\"menu\"],\"statements\":[[4,\"if\",[[25,[\"showLoginButton\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"authentication-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"authentication\",\"authFinished\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"authentication\",\"isLoggedIn\"]]],null,{\"statements\":[[4,\"bs-dropdown\",null,[[\"tagName\"],[\"span\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"toggle\"]],\"expected `dd.toggle` to be a contextual component but found a string. Did you mean `(component dd.toggle)`? ('developer-network/templates/components/global/login-widget.hbs' @ L6:C19) \"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[30,[[25,[\"profileImageUrl\",\"content\"]]]]],[12,\"class\",[30,[\"profile-image \",[25,[\"availability\",\"content\"]]]]],[9],[10],[0,\"\\n\\n                \"],[1,[25,[\"user\",\"bio\",\"name\"]],false],[0,\" \"],[7,\"span\"],[11,\"class\",\"caret\"],[9],[10]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"menu\"]],\"expected `dd.menu` to be a contextual component but found a string. Did you mean `(component dd.menu)`? ('developer-network/templates/components/global/login-widget.hbs' @ L12:C19) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L13:C23) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"link-to\"]],\"expected `menu.link-to` to be a contextual component but found a string. Did you mean `(component menu.link-to)`? ('developer-network/templates/components/global/login-widget.hbs' @ L14:C27) \"],null],\"profile\",[25,[\"userId\",\"content\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.myProfile\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"                    \"],[1,[24,2,[\"divider\"]],false],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L19:C23) \"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"menu-item-container\"],[9],[0,\"\\n                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signOut\"],null],false],[0,\"\\n                        \"],[3,\"action\",[[24,0,[]],\"logout\"]],[10],[0,\"  \\n\"]],\"parameters\":[]},null]],\"parameters\":[2]},null]],\"parameters\":[1]},null]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"login-buttons-container\"],[9],[0,\"\\n                \"],[7,\"button\"],[11,\"class\",\"login-button\"],[9],[0,\"\\n                    \"],[7,\"img\"],[11,\"src\",\"assets/img/people-male.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n                    \"],[7,\"span\"],[9],[0,\"\\n                        \"],[1,[29,\"concat\",[[29,\"t\",[\"devFoundry.header.loginWidget.signIn\"],null],\" / \",[29,\"t\",[\"devFoundry.header.loginWidget.signUp\"],null]],null],false],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"signinHostedUI\"]],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"]],\"hasEval\":false}",
+    "id": "2Zfz44GP",
+    "block": "{\"symbols\":[\"dd\",\"menu\"],\"statements\":[[4,\"if\",[[25,[\"showLoginButton\"]]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"authentication-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"authentication\",\"authFinished\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"authentication\",\"isLoggedIn\"]]],null,{\"statements\":[[4,\"bs-dropdown\",null,[[\"tagName\"],[\"span\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"toggle\"]],\"expected `dd.toggle` to be a contextual component but found a string. Did you mean `(component dd.toggle)`? ('developer-network/templates/components/global/login-widget.hbs' @ L6:C19) \"],null]],null,{\"statements\":[[0,\"                    \"],[7,\"img\"],[12,\"src\",[30,[[25,[\"profileImageUrl\",\"content\"]]]]],[12,\"class\",[30,[\"profile-image \",[25,[\"availability\",\"content\"]]]]],[9],[10],[0,\"\\n\\n                \"],[1,[25,[\"user\",\"bio\",\"name\"]],false],[0,\" \"],[7,\"span\"],[11,\"class\",\"caret\"],[9],[10]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"menu\"]],\"expected `dd.menu` to be a contextual component but found a string. Did you mean `(component dd.menu)`? ('developer-network/templates/components/global/login-widget.hbs' @ L12:C19) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L13:C23) \"],null]],null,{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"link-to\"]],\"expected `menu.link-to` to be a contextual component but found a string. Did you mean `(component menu.link-to)`? ('developer-network/templates/components/global/login-widget.hbs' @ L14:C27) \"],null],\"profile\",[25,[\"userId\",\"content\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.myProfile\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null],[0,\"                    \"],[1,[24,2,[\"divider\"]],false],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"item\"]],\"expected `menu.item` to be a contextual component but found a string. Did you mean `(component menu.item)`? ('developer-network/templates/components/global/login-widget.hbs' @ L19:C23) \"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"menu-item-container\"],[9],[0,\"\\n                            \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signOut\"],null],false],[0,\"\\n                        \"],[3,\"action\",[[24,0,[]],\"logout\"]],[10],[0,\"  \\n\"]],\"parameters\":[]},null]],\"parameters\":[2]},null]],\"parameters\":[1]},null]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[7,\"div\"],[11,\"class\",\"login-buttons-container\"],[9],[0,\"\\n                \"],[7,\"button\"],[11,\"class\",\"login-button\"],[9],[0,\"\\n                    \"],[7,\"img\"],[11,\"src\",\"assets/img/people-male.png\"],[11,\"alt\",\"\"],[11,\"srcset\",\"\"],[9],[10],[0,\"\\n                    \"],[7,\"span\"],[9],[0,\"\\n                        \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signIn\"],null],false],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"signinAuthenticationUI\"]],[10],[0,\"\\n                \"],[7,\"span\"],[9],[0,\" \"],[10],[0,\"\\n                \"],[7,\"button\"],[11,\"class\",\"login-button\"],[9],[0,\"\\n                    \"],[7,\"span\"],[9],[0,\"\\n                        \"],[1,[29,\"t\",[\"devFoundry.header.loginWidget.signUp\"],null],false],[0,\"\\n                    \"],[10],[0,\"\\n                \"],[3,\"action\",[[24,0,[]],\"signupUI\"]],[10],[0,\"\\n            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/global/login-widget.hbs"
     }
@@ -8150,8 +8113,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "U1Zq7XkL",
-    "block": "{\"symbols\":[\"modal\",\"modal\",\"profile\",\"interest\",\"profile\"],\"statements\":[[7,\"div\"],[11,\"class\",\"profile-details-container-outer\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"profile-details-left-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"profile-details-highlight\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"close-profile\"],[9],[0,\"\\n                \"],[7,\"i\"],[11,\"class\",\"far fa-times-circle\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"closeProfile\"],null]],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.exit\"],null],\"top\"]]],false],[10],[0,\"                        \\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"profile-details-container-header\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-logo-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"model\",\"profile\",\"bio\",\"status\"]],\"Available\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid green;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"model\",\"profile\",\"bio\",\"status\"]],\"Busy\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid red;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid gray;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"companyLogoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"companyLogoUrl\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[25,[\"assetLocatorService\",\"addButton\"]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-header-right-container\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-header\"],[9],[0,\"\\n\"],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"name-and-position\"],[9],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"profile-details-name\"],[9],[0,\"\\n                                    \"],[1,[24,5,[\"bio\",\"name\"]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                                        \"],[7,\"i\"],[11,\"class\",\"far fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"editProfile\"]]],null],true],null]],[9],[0,\"\\n                                            \"],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.edit\"],null],\"top\"]]],false],[0,\"\\n                                        \"],[10],[0,\"                                                        \\n\"]],\"parameters\":[]},null],[0,\"                                \"],[10],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"profile-details-position\"],[9],[0,\"\\n\"],[4,\"if\",[[24,5,[\"bio\",\"company\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[29,\"concat\",[[24,5,[\"bio\",\"position\"]],\" at \",[24,5,[\"bio\",\"company\"]]],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                                        \"],[1,[29,\"concat\",[[24,5,[\"bio\",\"position\"]]],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"                                \"],[10],[0,\"\\n                            \"],[10],[0,\"                        \\n\"]],\"parameters\":[5]},null],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"profile-details-edit\"],[9],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"publish-profile\"],[9],[0,\"\\n                                    \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.label\"],null],false],[0,\"\\n                                    \"],[1,[29,\"x-toggle\",null,[[\"theme\",\"showLabels\",\"size\",\"value\",\"onToggle\"],[\"material\",false,\"small\",[25,[\"model\",\"user\",\"isPublished\"]],[29,\"action\",[[24,0,[]],\"togglePublish\"],null]]]],false],[0,\"\\n                                \"],[10],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"delete-account\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"onClick\",\"class\"],[[29,\"action\",[[24,0,[]],\"deleteModalShow\"],null],\"delete-account-btn\"]],{\"statements\":[[0,\"                                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"contacts\",\"email\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"div\"],[11,\"class\",\"contact-me\"],[9],[0,\"\\n                                    \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"mailto:\",[25,[\"model\",\"profile\",\"contacts\",\"email\"]]],null]],[9],[0,\"\\n                                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.contact\"],null],false],[0,\"\\n                                    \"],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"                    \"],[10],[0,\"\\n\"],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                            \"],[7,\"div\"],[11,\"class\",\"profile-details-category-title\"],[9],[0,\"\\n                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.lookingFor\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[24,3,[\"bio\",\"lookingFor\"]]],null,{\"statements\":[[0,\"                                    \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userLookingFor.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-status\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"status\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.status\"],null],false],[0,\": \"],[10],[0,\"\\n                                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userStatuses.\",[24,3,[\"bio\",\"status\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-type\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"type\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.type\"],null],false],[0,\": \"],[10],[0,\"\\n                                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.companyTypes.\",[24,3,[\"bio\",\"type\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-briefDescription\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.description\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[1,[24,3,[\"bio\",\"description\"]],false],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-website\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.website\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[7,\"a\"],[12,\"href\",[24,3,[\"bio\",\"website\"]]],[9],[1,[24,3,[\"bio\",\"website\"]],false],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-externalProfile\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"community\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://community.genesys.com/network/members/profile?UserKey=\",[24,3,[\"contacts\",\"community\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-wordpress\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"whatsapp\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://wa.me/\",[24,3,[\"contacts\",\"whatsapp\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-whatsapp\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"facebook\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.facebook.com/\",[24,3,[\"contacts\",\"facebook\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-facebook\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"twitter\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://twitter.com/\",[24,3,[\"contacts\",\"twitter\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-twitter\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"linkedin\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.linkedin.com/in/\",[24,3,[\"contacts\",\"linkedin\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-linkedin-in\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"github\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.github.com/\",[24,3,[\"contacts\",\"github\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-github\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"bitbucket\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://bitbucket.org/\",[24,3,[\"contacts\",\"bitbucket\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-bitbucket\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-title-container\"],[9],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"  \\n        \"],[7,\"div\"],[11,\"class\",\"profile-details\"],[9],[0,\"\\n            \"],[1,[29,\"profile-page/details\",null,[[\"model\"],[[25,[\"model\"]]]]],false],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\\n\"],[0,\"                \"],[1,[29,\"profile-page/project-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"projects\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                \"],[7,\"hr\"],[9],[10],[0,\"\\n\"],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"badges\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"genbadges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                        \\n\"],[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                            \"],[7,\"hr\"],[9],[10],[0,\"    \\n                            \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                                \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                                \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                                \"],[7,\"hr\"],[9],[10],[0,\"\\n                                \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                                \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                                \"],[7,\"hr\"],[9],[10],[0,\"\\n                                \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"model\",\"genbadges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"            \\n        \"],[10],[0,\"              \\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[29,\"edit-profile/container\",null,[[\"model\",\"editProfile\"],[[25,[\"model\",\"profile\"]],[25,[\"editProfile\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"logoData\",\"devFoundry.components.logo\",[25,[\"model\",\"profile\",\"logoUrl\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditCompanyLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"companyLogoData\",\"devFoundry.components.companyLogo\",[25,[\"model\",\"profile\",\"companyLogoUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"onSubmit\",\"position\"],[[25,[\"showPublishConfirmation\"]],[29,\"action\",[[24,0,[]],\"cancelPublishChange\"],null],[29,\"action\",[[24,0,[]],\"confirmPublishChange\"],null],\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/container.hbs' @ L314:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/container.hbs' @ L321:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"style\",\"padding: 10px;\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"footer\"]],\"expected `modal.footer` to be a contextual component but found a string. Did you mean `(component modal.footer)`? ('developer-network/templates/components/profile-page/container.hbs' @ L331:C7) \"],null]],null,{\"statements\":[[4,\"bs-button\",null,[[\"onClick\"],[[29,\"action\",[[24,0,[]],[24,2,[\"close\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"bs-button\",null,[[\"type\",\"onClick\"],[\"success\",[29,\"action\",[[24,0,[]],[24,2,[\"submit\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeYes\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[2]},null],[0,\"\\n\"],[4,\"bs-modal-simple\",null,[[\"open\",\"title\",\"closeTitle\",\"submitTitle\",\"closeButton\",\"position\",\"onHidden\",\"onSubmit\"],[[25,[\"deleteAccountConfirmationShow\"]],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeCancel\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeDelete\"],null],true,\"center\",[29,\"action\",[[24,0,[]],\"deleteModalCancel\"],null],[29,\"action\",[[24,0,[]],\"deleteAccount\"],null]]],{\"statements\":[[0,\"    \"],[7,\"p\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.confirmDeleteAccount\"],null],false],[0,\"\\n    \"],[10],[0,\" \\n    \"],[7,\"p\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.warnDeleteAccount\"],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "CuxrTRx4",
+    "block": "{\"symbols\":[\"modal\",\"modal\",\"profile\",\"interest\",\"profile\"],\"statements\":[[7,\"div\"],[11,\"class\",\"profile-details-container-outer\"],[9],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"profile-details-left-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"profile-details-highlight\"],[9],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"close-profile\"],[9],[0,\"\\n                \"],[7,\"i\"],[11,\"class\",\"far fa-times-circle\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"closeProfile\"],null]],[9],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.exit\"],null],\"top\"]]],false],[10],[0,\"                        \\n            \"],[10],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"profile-details-container-header\"],[9],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-logo-container\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"eq\",[[25,[\"model\",\"profile\",\"bio\",\"status\"]],\"Available\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid green;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"eq\",[[25,[\"model\",\"profile\",\"bio\",\"status\"]],\"Busy\"],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid red;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"user-logo\"],[11,\"style\",\"border:5px solid gray;\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewLogo\"],null]],[12,\"src\",[29,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"logoUrl\",\"length\"]],0],null],[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"logoUrl\"]]],null],[25,[\"assetLocatorService\",\"defaultProfileLogo\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n                    \"]],\"parameters\":[]}]],\"parameters\":[]}],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"companyLogoUrl\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                        \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[29,\"concat\",[[25,[\"model\",\"user\",\"logoRepositoryUrl\"]],[25,[\"model\",\"profile\",\"companyLogoUrl\"]]],null]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"img\"],[11,\"class\",\"company-logo\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],\"chooseNewCompanyLogo\"],null]],[12,\"src\",[25,[\"assetLocatorService\",\"addButton\"]]],[11,\"alt\",\"\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-header-right-container\"],[9],[0,\"\\n                    \"],[7,\"div\"],[11,\"class\",\"profile-details-header\"],[9],[0,\"\\n\"],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"name-and-position\"],[9],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"profile-details-name\"],[9],[0,\"\\n                                    \"],[1,[24,5,[\"bio\",\"name\"]],false],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                                        \"],[7,\"i\"],[11,\"class\",\"far fa-edit\"],[12,\"onclick\",[29,\"action\",[[24,0,[]],[29,\"mut\",[[25,[\"editProfile\"]]],null],true],null]],[9],[0,\"\\n                                            \"],[1,[29,\"bs-tooltip\",null,[[\"title\",\"placement\"],[[29,\"t\",[\"devFoundry.components.profile.edit\"],null],\"top\"]]],false],[0,\"\\n                                        \"],[10],[0,\"                                                        \\n\"]],\"parameters\":[]},null],[0,\"                                \"],[10],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"profile-details-position\"],[9],[0,\"\\n\"],[4,\"if\",[[24,5,[\"bio\",\"company\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[29,\"concat\",[[24,5,[\"bio\",\"position\"]],\" at \",[24,5,[\"bio\",\"company\"]]],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                                        \"],[1,[29,\"concat\",[[24,5,[\"bio\",\"position\"]]],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"                                \"],[10],[0,\"\\n                            \"],[10],[0,\"                        \\n\"]],\"parameters\":[5]},null],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"profile-details-edit\"],[9],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"publish-profile\"],[9],[0,\"\\n                                    \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.label\"],null],false],[0,\"\\n                                    \"],[1,[29,\"x-toggle\",null,[[\"theme\",\"showLabels\",\"size\",\"value\",\"onToggle\"],[\"material\",false,\"small\",[25,[\"model\",\"user\",\"isPublished\"]],[29,\"action\",[[24,0,[]],\"togglePublish\"],null]]]],false],[0,\"\\n                                \"],[10],[0,\"\\n                                \"],[7,\"div\"],[11,\"class\",\"delete-account\"],[9],[0,\"\\n\"],[4,\"bs-button\",null,[[\"onClick\",\"class\"],[[29,\"action\",[[24,0,[]],\"deleteModalShow\"],null],\"delete-account-btn\"]],{\"statements\":[[0,\"                                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                                \"],[10],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[29,\"gt\",[[25,[\"model\",\"profile\",\"contacts\",\"email\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"div\"],[11,\"class\",\"contact-me\"],[9],[0,\"\\n                                    \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"mailto:\",[25,[\"model\",\"profile\",\"contacts\",\"email\"]]],null]],[9],[0,\"\\n                                        \"],[1,[29,\"t\",[\"devFoundry.components.profile.contact\"],null],false],[0,\"\\n                                    \"],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"                    \"],[10],[0,\"\\n\"],[4,\"with\",[[25,[\"model\",\"profile\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                            \"],[7,\"div\"],[11,\"class\",\"profile-details-category-title\"],[9],[0,\"\\n                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.lookingFor\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[24,3,[\"bio\",\"lookingFor\"]]],null,{\"statements\":[[0,\"                                    \"],[7,\"span\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userLookingFor.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                            \"],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-status\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"status\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.status\"],null],false],[0,\": \"],[10],[0,\"\\n                                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.userStatuses.\",[24,3,[\"bio\",\"status\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-type\"],[9],[0,\"\\n\"],[4,\"if\",[[24,3,[\"bio\",\"type\"]]],null,{\"statements\":[[0,\"                                \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.type\"],null],false],[0,\": \"],[10],[0,\"\\n                                \"],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.companyTypes.\",[24,3,[\"bio\",\"type\"]]],null]],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-briefDescription\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.description\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[1,[24,3,[\"bio\",\"description\"]],false],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-website\"],[9],[0,\"\\n                            \"],[7,\"label\"],[11,\"class\",\"bold-font\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.bio.website\"],null],false],[0,\": \"],[10],[0,\"\\n                            \"],[7,\"a\"],[12,\"href\",[24,3,[\"bio\",\"website\"]]],[9],[1,[24,3,[\"bio\",\"website\"]],false],[10],[0,\"\\n                        \"],[10],[0,\"\\n                        \"],[7,\"div\"],[11,\"class\",\"profile-details-externalProfile\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"community\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://community.genesys.com/network/members/profile?UserKey=\",[24,3,[\"contacts\",\"community\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-wordpress\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"whatsapp\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://wa.me/\",[24,3,[\"contacts\",\"whatsapp\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-whatsapp\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"facebook\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.facebook.com/\",[24,3,[\"contacts\",\"facebook\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-facebook\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"twitter\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://twitter.com/\",[24,3,[\"contacts\",\"twitter\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-twitter\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"linkedin\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.linkedin.com/in/\",[24,3,[\"contacts\",\"linkedin\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-linkedin-in\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"github\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://www.github.com/\",[24,3,[\"contacts\",\"github\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-github\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"if\",[[29,\"gt\",[[24,3,[\"contacts\",\"bitbucket\",\"length\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[7,\"a\"],[12,\"href\",[29,\"concat\",[\"https://bitbucket.org/\",[24,3,[\"contacts\",\"bitbucket\"]]],null]],[9],[0,\"\\n                                    \"],[7,\"i\"],[11,\"class\",\"fab fa-bitbucket\"],[11,\"aria-hidden\",\"true\"],[9],[10],[0,\"\\n                                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"                        \"],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n                \"],[7,\"div\"],[11,\"class\",\"profile-details-title-container\"],[9],[10],[0,\"\\n            \"],[10],[0,\"\\n        \"],[10],[0,\"  \\n        \"],[7,\"div\"],[11,\"class\",\"profile-details\"],[9],[0,\"\\n            \"],[1,[29,\"profile-page/details\",null,[[\"model\"],[[25,[\"model\"]]]]],false],[0,\"\\n            \"],[7,\"hr\"],[9],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"model\",\"projects\",\"firstObject\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"profile-page/project-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"projects\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                \"],[7,\"hr\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[0,\"                    \"],[1,[29,\"profile-page/project-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"projects\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                    \"],[7,\"hr\"],[9],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"\\n            \"],[7,\"div\"],[11,\"class\",\"badges\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"showEditButton\"]]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"genbadges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                        \\n\"],[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                            \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                            \"],[7,\"hr\"],[9],[10],[0,\"    \\n                            \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                                \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                                \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                                \"],[7,\"hr\"],[9],[10],[0,\"\\n                                \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                            \"],[7,\"div\"],[11,\"class\",\"empty-badge-container\"],[9],[0,\"\\n                                \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                                \"],[7,\"hr\"],[9],[10],[0,\"\\n                                \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n                            \"],[10],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]}]],\"parameters\":[]},{\"statements\":[[4,\"if\",[[25,[\"model\",\"genbadges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/genbadge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"genbadges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"badges\",\"firstObject\"]]],null,{\"statements\":[[0,\"                        \"],[1,[29,\"profile-page/badge-container\",null,[[\"showControls\",\"model\",\"logoRepositoryUrl\"],[[25,[\"showEditButton\"]],[25,[\"model\",\"badges\"]],[25,[\"model\",\"user\",\"logoRepositoryUrl\"]]]]],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]}],[0,\"            \"],[10],[0,\"            \\n        \"],[10],[0,\"              \\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[29,\"edit-profile/container\",null,[[\"model\",\"editProfile\"],[[25,[\"model\",\"profile\"]],[25,[\"editProfile\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"logoData\",\"devFoundry.components.logo\",[25,[\"model\",\"profile\",\"logoUrl\"]]]]],false],[0,\"\\n\\n\"],[1,[29,\"generic/edit-logo-container\",null,[[\"showEditLogo\",\"model\",\"showEditButton\",\"prmModelType\",\"prmLogoDataKey\",\"prmLanguagePath\",\"prmOrigLogoUrl\"],[[25,[\"showEditCompanyLogo\"]],[25,[\"model\"]],[25,[\"showEditButton\"]],\"profile\",\"companyLogoData\",\"devFoundry.components.companyLogo\",[25,[\"model\",\"profile\",\"companyLogoUrl\"]]]]],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"onHidden\",\"onSubmit\",\"position\"],[[25,[\"showPublishConfirmation\"]],[29,\"action\",[[24,0,[]],\"cancelPublishChange\"],null],[29,\"action\",[[24,0,[]],\"confirmPublishChange\"],null],\"center\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"header\"]],\"expected `modal.header` to be a contextual component but found a string. Did you mean `(component modal.header)`? ('developer-network/templates/components/profile-page/container.hbs' @ L323:C7) \"],null]],null,{\"statements\":[[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.confirmUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}]],\"parameters\":[]},null],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/components/profile-page/container.hbs' @ L330:C7) \"],null]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"style\",\"padding: 10px;\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"isPublished\"]]],null,{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnPublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]},{\"statements\":[[0,\"                \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.warnUnpublish\"],null],false],[0,\"\\n\"]],\"parameters\":[]}],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,2,[\"footer\"]],\"expected `modal.footer` to be a contextual component but found a string. Did you mean `(component modal.footer)`? ('developer-network/templates/components/profile-page/container.hbs' @ L340:C7) \"],null]],null,{\"statements\":[[4,\"bs-button\",null,[[\"onClick\"],[[29,\"action\",[[24,0,[]],[24,2,[\"close\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeNo\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null],[4,\"bs-button\",null,[[\"type\",\"onClick\"],[\"success\",[29,\"action\",[[24,0,[]],[24,2,[\"submit\"]]],null]]],{\"statements\":[[0,\"            \"],[1,[29,\"t\",[\"devFoundry.components.profile.publish.closeYes\"],null],false],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[]},null]],\"parameters\":[2]},null],[0,\"\\n\"],[4,\"bs-modal-simple\",null,[[\"open\",\"title\",\"closeTitle\",\"submitTitle\",\"closeButton\",\"position\",\"onHidden\",\"onSubmit\"],[[25,[\"deleteAccountConfirmationShow\"]],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.label\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeCancel\"],null],[29,\"t\",[\"devFoundry.components.profile.deleteAccount.closeDelete\"],null],true,\"center\",[29,\"action\",[[24,0,[]],\"deleteModalCancel\"],null],[29,\"action\",[[24,0,[]],\"deleteAccount\"],null]]],{\"statements\":[[0,\"    \"],[7,\"p\"],[9],[0,\"\\n        \"],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.confirmDeleteAccount\"],null],false],[0,\"\\n    \"],[10],[0,\" \\n    \"],[7,\"p\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.deleteAccount.warnDeleteAccount\"],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/container.hbs"
     }
@@ -8168,8 +8131,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "hJzHznlU",
-    "block": "{\"symbols\":[\"lang\",\"region\",\"country\",\"proficiency\",\"technology\",\"feature\",\"lang\",\"platform\"],\"statements\":[[7,\"div\"],[11,\"class\",\"container-skill\"],[9],[0,\"\\n    \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"skills-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"skills-details\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.genesysPlatforms\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.genesysPlatforms.\",[24,8,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[8]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.programmingLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,7,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[7]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.features\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.features.\",[24,6,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[6]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.technologies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.technologies.\",[24,5,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.proficiencies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.proficiencies.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.knowledge\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]],false],[10],[0,\"\\n                \"],[10],[0,\"                \\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.industryKnowledge\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.certifications\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]],false],[10],[0,\"\\n                \"],[10],[0,\"                \\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"location-and-languages\"],[9],[0,\"\\n            \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.postalCode\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.country\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null]],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.countries\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.regions\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.regions.\",[24,2,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.spokenLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.spokenLanguages.\",[24,1,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"],[10],[0,\"\\n\"]],\"hasEval\":false}",
+    "id": "if6txE06",
+    "block": "{\"symbols\":[\"lang\",\"region\",\"country\",\"proficiency\",\"technology\",\"feature\",\"lang\",\"platform\"],\"statements\":[[7,\"div\"],[11,\"class\",\"container-skill\"],[9],[0,\"\\n\"],[4,\"if\",[[29,\"or\",[[25,[\"hasSkill\"]],[25,[\"hasLanguage\"]]],null]],null,{\"statements\":[[0,\"    \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.label\"],null],false],[10],[0,\"\\n    \"],[7,\"div\"],[11,\"class\",\"skills-container\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"hasSkill\"]]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"skills-details\"],[9],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.genesysPlatforms\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"genesysPlatforms\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.genesysPlatforms.\",[24,8,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[8]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.programmingLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"programmingLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.programmingLanguages.\",[24,7,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[7]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.features\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"features\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.features.\",[24,6,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[6]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.technologies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"technologies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.technologies.\",[24,5,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[5]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.proficiencies\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"proficiencies\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.proficiencies.\",[24,4,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[4]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.knowledge\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"knowledge\"]],false],[10],[0,\"\\n                \"],[10],[0,\"                \\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.industryKnowledge\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"industryKnowledge\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.skills.other.certifications\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"skills\",\"other\",\"certifications\"]],false],[10],[0,\"\\n                \"],[10],[0,\"                \\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"hasLanguage\"]]],null,{\"statements\":[[0,\"        \"],[7,\"div\"],[11,\"class\",\"location-and-languages\"],[9],[0,\"\\n            \"],[7,\"label\"],[11,\"class\",\"profile-detail-label\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.label\"],null],false],[10],[0,\"\\n\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.postalCode\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[25,[\"model\",\"user\",\"profile\",\"location\",\"postalCode\"]],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.country\"],null],false],[0,\": \"],[10],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[25,[\"model\",\"user\",\"profile\",\"location\",\"country\"]]],null]],null],false],[10],[0,\"\\n                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.countries\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"countries\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.countries.\",[24,3,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[3]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.regions\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"regions\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.regions.\",[24,2,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[2]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"\\n\"],[4,\"if\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                \"],[7,\"div\"],[11,\"class\",\"profile-details-category\"],[9],[0,\"\\n                    \"],[7,\"label\"],[11,\"class\",\"category-title\"],[9],[1,[29,\"t\",[\"devFoundry.components.profile.location.spokenLanguages\"],null],false],[0,\": \"],[10],[0,\"\\n\"],[4,\"each\",[[25,[\"model\",\"user\",\"profile\",\"location\",\"spokenLanguages\"]]],null,{\"statements\":[[0,\"                        \"],[7,\"span\"],[11,\"class\",\"category-text\"],[9],[1,[29,\"t\",[[29,\"concat\",[\"devFoundry.components.enums.spokenLanguages.\",[24,1,[]]],null]],null],false],[10],[0,\"\\n\"]],\"parameters\":[1]},null],[0,\"                \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"        \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[0,\"    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null],[10],[0,\"\\n\"]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/components/profile-page/details.hbs"
     }
@@ -8276,8 +8239,8 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "UWqE5rnq",
-    "block": "{\"symbols\":[],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\",\"contentPanelTitle\"],[false,true,\"Joining Creators\"]]],false],[0,\"\\n\"],[4,\"content-panel\",null,null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"about-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"about-content\"],[9],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"img\"],[11,\"class\",\"img-left\"],[11,\"src\",\"assets/img/creators-logo.png\"],[9],[10],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"p\"],[9],[7,\"h1\"],[9],[0,\"Coming Soon...\"],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\" \\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
+    "id": "Q1Y5L9TU",
+    "block": "{\"symbols\":[],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\",\"contentPanelTitle\"],[false,true,\"Joining Creators\"]]],false],[0,\"\\n\"],[4,\"content-panel\",null,null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"getting-started-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"getting-started-content\"],[9],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"img\"],[11,\"class\",\"img-left\"],[11,\"src\",\"assets/img/beyond-logo.png\"],[9],[10],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"p\"],[9],[7,\"h1\"],[9],[1,[29,\"t\",[\"devFoundry.header.staticPages.gettingStarted\"],null],false],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\" \\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/getting-started.hbs"
     }
@@ -8294,10 +8257,28 @@
   _exports.default = void 0;
 
   var _default = Ember.HTMLBars.template({
-    "id": "obzJxc0J",
-    "block": "{\"symbols\":[\"modal\"],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\"],[true,false]]],false],[0,\"\\n\"],[1,[23,\"filter-profile/container\"],false],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[23,\"outlet\"],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"backdropClose\",\"size\"],[[25,[\"showLoggingInModal\"]],\"center\",false,\"sm\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/index.hbs' @ L34:C5) \"],null]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"logging-in-modal-container\"],[9],[0,\"\\n        \"],[1,[29,\"adaptive-g-spinner\",null,[[\"size\"],[\"medium\"]]],false],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            Logging you in... Please wait.\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
+    "id": "BkA2w6fI",
+    "block": "{\"symbols\":[\"modal\"],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\"],[true,false]]],false],[0,\"\\n\"],[1,[23,\"filter-profile/container\"],false],[0,\"\\n\\n\"],[0,\"\\n\"],[1,[23,\"outlet\"],false],[0,\"\\n\\n\"],[4,\"bs-modal\",null,[[\"open\",\"position\",\"backdropClose\",\"size\"],[[25,[\"showLoggingInModal\"]],\"center\",false,\"sm\"]],{\"statements\":[[4,\"component\",[[29,\"-assert-implicit-component-helper-argument\",[[24,1,[\"body\"]],\"expected `modal.body` to be a contextual component but found a string. Did you mean `(component modal.body)`? ('developer-network/templates/index.hbs' @ L34:C5) \"],null]],null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"logging-in-modal-container\"],[9],[0,\"\\n        \"],[1,[29,\"adaptive-g-spinner\",null,[[\"size\"],[\"medium\"]]],false],[0,\"\\n        \"],[7,\"div\"],[9],[0,\"\\n            \"],[1,[29,\"t\",[\"devFoundry.header.staticPages.loggingSpinner\"],null],false],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"parameters\":[1]},null]],\"hasEval\":false}",
     "meta": {
       "moduleName": "developer-network/templates/index.hbs"
+    }
+  });
+
+  _exports.default = _default;
+});
+;define("developer-network/templates/page-not-found", ["exports"], function (_exports) {
+  "use strict";
+
+  Object.defineProperty(_exports, "__esModule", {
+    value: true
+  });
+  _exports.default = void 0;
+
+  var _default = Ember.HTMLBars.template({
+    "id": "X7VcmJsp",
+    "block": "{\"symbols\":[],\"statements\":[[1,[29,\"container/home-hero\",null,[[\"showSearchBar\",\"isShort\",\"contentPanelTitle\"],[false,true,\"Page Not Found\"]]],false],[0,\"\\n\"],[4,\"content-panel\",null,null,{\"statements\":[[0,\"    \"],[7,\"div\"],[11,\"class\",\"page-not-found-container\"],[9],[0,\"\\n        \"],[7,\"div\"],[11,\"class\",\"page-not-found-content\"],[9],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"img\"],[11,\"class\",\"img-left\"],[11,\"src\",\"assets/img/beyond-logo.png\"],[9],[10],[0,\"\\n            \"],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[7,\"br\"],[9],[10],[0,\"\\n            \"],[7,\"p\"],[9],[7,\"h1\"],[9],[1,[29,\"t\",[\"devFoundry.header.staticPages.pageNotFound\"],null],false],[10],[10],[0,\"\\n        \"],[10],[0,\"\\n    \"],[10],[0,\"\\n\"]],\"parameters\":[]},null]],\"hasEval\":false}",
+    "meta": {
+      "moduleName": "developer-network/templates/page-not-found.hbs"
     }
   });
 
@@ -8489,11 +8470,12 @@
         "emptySelectLabel": "- select -",
         "enums": {
           "companyTypes": {
+            "Company": "Company",
             "Contractor": "Self-Contractor",
             "GenesysEmployee": "Genesys Employee",
-            "GenesysPartner": "Genesys Partner",
-            "ISV": "ISV",
-            "Other": "Other"
+            "GenesysPartner": "Working for a Genesys Partner",
+            "Other": "Individual",
+            "Student": "Student"
           },
           "countries": {
             "AD": "Andorra",
@@ -8747,11 +8729,13 @@
             "ZW": "Zimbabwe"
           },
           "features": {
+            "Bots": "Chat & Voice Bots",
             "BusinessOptimization": "Business Optimization",
             "CallRecording": "Call Recording",
             "DesktopClient": "Desktop Client",
             "DigitalMessaging": "Digital/Messaging",
-            "Reporting": "Reporting",
+            "Outbound": "Outbound Dialing",
+            "Reporting": "Reporting & Analytics",
             "Voice": "Voice",
             "WEM": "Workforce Management"
           },
@@ -8772,6 +8756,7 @@
             "ActionScript": "ActionScript",
             "CPlus": "C/C++",
             "CSharp": "C#",
+            "Go": "Go",
             "HTML5": "HTML5",
             "HTMLCSS": "HTML/CSS",
             "Java": "Java",
@@ -8782,6 +8767,7 @@
             "Perl": "Perl",
             "Python": "Python",
             "Ruby": "Ruby",
+            "Swift": "Swift",
             "VBSharp": "VB.NET",
             "jQuery": "jQuery"
           },
@@ -8826,9 +8812,11 @@
             "Android": "Android",
             "Azure": "Microsoft Azure",
             "Bots": "Bots",
+            "DialogFlow": "Dialog Flow",
             "EMail": "EMail (POP/SMTP/...)",
             "Facebook": "Facebook",
             "GoogleCloud": "Google Cloud Services",
+            "MSFTSQL": "Microsoft SQL Server",
             "MySQL": "MySQL",
             "NoSQL": "NoSQL",
             "SFCOM": "Salesforce",
@@ -9099,6 +9087,12 @@
           "selectRegion": "Select Region",
           "title": "Select your Language"
         },
+        "staticPages": {
+          "about": "Coming Soon...",
+          "gettingStarted": "Coming Soon...",
+          "loggingSpinner": "Logging you in... Please wait.",
+          "pageNotFound": "Oops, the page you're looking for wasn't found"
+        },
         "welcome": "Welcome to Creators"
       },
       "listingDetails": {
@@ -9295,850 +9289,6 @@
   };
   _exports.default = _default;
 });
-;define("developer-network/translations/es", ["exports"], function (_exports) {
-  "use strict";
-
-  Object.defineProperty(_exports, "__esModule", {
-    value: true
-  });
-  _exports.default = void 0;
-  var _default = {
-    "devFoundry": {
-      "components": {
-        "badge": {
-          "cancel": "Cancel",
-          "description": "Short Description",
-          "edit": "Edit Badge",
-          "issuedAt": "Obtained on",
-          "issuer": "Issued by",
-          "label": "Badge",
-          "listing": {
-            "confirmDelete": "Are you sure you want to delete this badge?",
-            "confirmNo": "Cancel",
-            "confirmYes": "Delete",
-            "confirmation": "Confirmation",
-            "label": "Badges"
-          },
-          "name": "Badge Name",
-          "new": "New Badge",
-          "save": "Save",
-          "url": "Badge Url"
-        },
-        "companyLogo": {
-          "cancel": "Cancel",
-          "edit": "Company Logo",
-          "new": "Upload New Company Logo",
-          "upload": "Upload"
-        },
-        "disclaimerDevInProgress": "Construction in progress... If you feel that some choices are missing (in Languages, Technologies, ...) or that some categories should be added, please let us know at DevFoundry@genesys.com. Thank you!",
-        "emptySelectLabel": "- select -",
-        "enums": {
-          "companyTypes": {
-            "Contractor": "Self-Contractor",
-            "GenesysEmployee": "Genesys Employee",
-            "GenesysPartner": "Genesys Partner",
-            "ISV": "ISV",
-            "Other": "Other"
-          },
-          "countries": {
-            "AD": "Andorra",
-            "AE": "United Arab Emirates",
-            "AF": "Afghanistan",
-            "AG": "Antigua and Barbuda",
-            "AI": "Anguilla",
-            "AL": "Albania",
-            "AM": "Armenia",
-            "AO": "Angola",
-            "AQ": "Antarctica",
-            "AR": "Argentina",
-            "AS": "American Samoa",
-            "AT": "Austria",
-            "AU": "Australia",
-            "AW": "Aruba",
-            "AX": "Åland Islands",
-            "AZ": "Azerbaijan",
-            "BA": "Bosnia and Herzegovina",
-            "BB": "Barbados",
-            "BD": "Bangladesh",
-            "BE": "Belgium",
-            "BF": "Burkina Faso",
-            "BG": "Bulgaria",
-            "BH": "Bahrain",
-            "BI": "Burundi",
-            "BJ": "Benin",
-            "BL": "Saint Barthélemy",
-            "BM": "Bermuda",
-            "BN": "Brunei Darussalam",
-            "BO": "Bolivia, Plurinational State of",
-            "BQ": "Bonaire, Sint Eustatius and Saba",
-            "BR": "Brazil",
-            "BS": "Bahamas",
-            "BT": "Bhutan",
-            "BV": "Bouvet Island",
-            "BW": "Botswana",
-            "BY": "Belarus",
-            "BZ": "Belize",
-            "CA": "Canada",
-            "CC": "Cocos (Keeling) Islands",
-            "CD": "Congo, the Democratic Republic of the",
-            "CF": "Central African Republic",
-            "CG": "Congo",
-            "CH": "Switzerland",
-            "CI": "Côte d'Ivoire",
-            "CK": "Cook Islands",
-            "CL": "Chile",
-            "CM": "Cameroon",
-            "CN": "China",
-            "CO": "Colombia",
-            "CR": "Costa Rica",
-            "CU": "Cuba",
-            "CV": "Cape Verde",
-            "CW": "Curaçao",
-            "CX": "Christmas Island",
-            "CY": "Cyprus",
-            "CZ": "Czech Republic",
-            "DE": "Germany",
-            "DJ": "Djibouti",
-            "DK": "Denmark",
-            "DM": "Dominica",
-            "DO": "Dominican Republic",
-            "DZ": "Algeria",
-            "EC": "Ecuador",
-            "EE": "Estonia",
-            "EG": "Egypt",
-            "EH": "Western Sahara",
-            "ER": "Eritrea",
-            "ES": "Spain",
-            "ET": "Ethiopia",
-            "FI": "Finland",
-            "FJ": "Fiji",
-            "FK": "Falkland Islands (Malvinas)",
-            "FM": "Micronesia, Federated States of",
-            "FO": "Faroe Islands",
-            "FR": "France",
-            "GA": "Gabon",
-            "GB": "United Kingdom",
-            "GD": "Grenada",
-            "GE": "Georgia",
-            "GF": "French Guiana",
-            "GG": "Guernsey",
-            "GH": "Ghana",
-            "GI": "Gibraltar",
-            "GL": "Greenland",
-            "GM": "Gambia",
-            "GN": "Guinea",
-            "GP": "Guadeloupe",
-            "GQ": "Equatorial Guinea",
-            "GR": "Greece",
-            "GS": "South Georgia and the South Sandwich Islands",
-            "GT": "Guatemala",
-            "GU": "Guam",
-            "GW": "Guinea-Bissau",
-            "GY": "Guyana",
-            "HK": "Hong Kong",
-            "HM": "Heard Island and McDonald Islands",
-            "HN": "Honduras",
-            "HR": "Croatia",
-            "HT": "Haiti",
-            "HU": "Hungary",
-            "ID": "Indonesia",
-            "IE": "Ireland",
-            "IL": "Israel",
-            "IM": "Isle of Man",
-            "IN": "India",
-            "IO": "British Indian Ocean Territory",
-            "IQ": "Iraq",
-            "IR": "Iran, Islamic Republic of",
-            "IS": "Iceland",
-            "IT": "Italy",
-            "JE": "Jersey",
-            "JM": "Jamaica",
-            "JO": "Jordan",
-            "JP": "Japan",
-            "KE": "Kenya",
-            "KG": "Kyrgyzstan",
-            "KH": "Cambodia",
-            "KI": "Kiribati",
-            "KM": "Comoros",
-            "KN": "Saint Kitts and Nevis",
-            "KP": "Korea, Democratic People's Republic of",
-            "KR": "Korea, Republic of",
-            "KW": "Kuwait",
-            "KY": "Cayman Islands",
-            "KZ": "Kazakhstan",
-            "LA": "Lao People's Democratic Republic",
-            "LB": "Lebanon",
-            "LC": "Saint Lucia",
-            "LI": "Liechtenstein",
-            "LK": "Sri Lanka",
-            "LR": "Liberia",
-            "LS": "Lesotho",
-            "LT": "Lithuania",
-            "LU": "Luxembourg",
-            "LV": "Latvia",
-            "LY": "Libya",
-            "MA": "Morocco",
-            "MC": "Monaco",
-            "MD": "Moldova, Republic of",
-            "ME": "Montenegro",
-            "MF": "Saint Martin (French part)",
-            "MG": "Madagascar",
-            "MH": "Marshall Islands",
-            "MK": "Macedonia, the former Yugoslav Republic of",
-            "ML": "Mali",
-            "MM": "Myanmar",
-            "MN": "Mongolia",
-            "MO": "Macao",
-            "MP": "Northern Mariana Islands",
-            "MQ": "Martinique",
-            "MR": "Mauritania",
-            "MS": "Montserrat",
-            "MT": "Malta",
-            "MU": "Mauritius",
-            "MV": "Maldives",
-            "MW": "Malawi",
-            "MX": "Mexico",
-            "MY": "Malaysia",
-            "MZ": "Mozambique",
-            "NA": "Namibia",
-            "NC": "New Caledonia",
-            "NE": "Niger",
-            "NF": "Norfolk Island",
-            "NG": "Nigeria",
-            "NI": "Nicaragua",
-            "NL": "Netherlands",
-            "NO": "Norway",
-            "NP": "Nepal",
-            "NR": "Nauru",
-            "NU": "Niue",
-            "NZ": "New Zealand",
-            "OM": "Oman",
-            "PA": "Panama",
-            "PE": "Peru",
-            "PF": "French Polynesia",
-            "PG": "Papua New Guinea",
-            "PH": "Philippines",
-            "PK": "Pakistan",
-            "PL": "Poland",
-            "PM": "Saint Pierre and Miquelon",
-            "PN": "Pitcairn",
-            "PR": "Puerto Rico",
-            "PS": "Palestinian Territory, Occupied",
-            "PT": "Portugal",
-            "PW": "Palau",
-            "PY": "Paraguay",
-            "QA": "Qatar",
-            "RE": "Réunion",
-            "RO": "Romania",
-            "RS": "Serbia",
-            "RU": "Russian Federation",
-            "RW": "Rwanda",
-            "SA": "Saudi Arabia",
-            "SB": "Solomon Islands",
-            "SC": "Seychelles",
-            "SD": "Sudan",
-            "SE": "Sweden",
-            "SG": "Singapore",
-            "SH": "Saint Helena, Ascension and Tristan da Cunha",
-            "SI": "Slovenia",
-            "SJ": "Svalbard and Jan Mayen",
-            "SK": "Slovakia",
-            "SL": "Sierra Leone",
-            "SM": "San Marino",
-            "SN": "Senegal",
-            "SO": "Somalia",
-            "SR": "Suriname",
-            "SS": "South Sudan",
-            "ST": "Sao Tome and Principe",
-            "SV": "El Salvador",
-            "SX": "Sint Maarten (Dutch part)",
-            "SY": "Syrian Arab Republic",
-            "SZ": "Swaziland",
-            "TC": "Turks and Caicos Islands",
-            "TD": "Chad",
-            "TF": "French Southern Territories",
-            "TG": "Togo",
-            "TH": "Thailand",
-            "TJ": "Tajikistan",
-            "TK": "Tokelau",
-            "TL": "Timor-Leste",
-            "TM": "Turkmenistan",
-            "TN": "Tunisia",
-            "TO": "Tonga",
-            "TR": "Turkey",
-            "TT": "Trinidad and Tobago",
-            "TV": "Tuvalu",
-            "TW": "Taiwan, Province of China",
-            "TZ": "Tanzania, United Republic of",
-            "UA": "Ukraine",
-            "UG": "Uganda",
-            "UM": "United States Minor Outlying Islands",
-            "US": "United States",
-            "UY": "Uruguay",
-            "UZ": "Uzbekistan",
-            "VA": "Holy See (Vatican City State)",
-            "VC": "Saint Vincent and the Grenadines",
-            "VE": "Venezuela, Bolivarian Republic of",
-            "VG": "Virgin Islands, British",
-            "VI": "Virgin Islands, U.S.",
-            "VN": "Viet Nam",
-            "VU": "Vanuatu",
-            "WF": "Wallis and Futuna",
-            "WS": "Samoa",
-            "YE": "Yemen",
-            "YT": "Mayotte",
-            "ZA": "South Africa",
-            "ZM": "Zambia",
-            "ZW": "Zimbabwe"
-          },
-          "features": {
-            "BusinessOptimization": "Business Optimization",
-            "CallRecording": "Call Recording",
-            "DesktopClient": "Desktop Client",
-            "DigitalMessaging": "Digital/Messaging",
-            "Reporting": "Reporting",
-            "Voice": "Voice",
-            "WEM": "Workforce Management"
-          },
-          "genesysPlatforms": {
-            "PureCloud": "PureCloud",
-            "PureConnect": "PureConnect",
-            "PureEngage": "PureEngage"
-          },
-          "proficiencies": {
-            "Administration": "Administration",
-            "Architect": "Architect",
-            "Developer": "Developer",
-            "ProjectManager": "Project Manager",
-            "Scripting": "Scripting"
-          },
-          "programmingLanguages": {
-            "ASPNet": "ASP.Net",
-            "ActionScript": "ActionScript",
-            "CPlus": "C/C++",
-            "CSharp": "C#",
-            "HTML5": "HTML5",
-            "HTMLCSS": "HTML/CSS",
-            "Java": "Java",
-            "Javascript": "Javascript",
-            "Nodejs": "Node.js",
-            "ObjectiveC": "Objective-C",
-            "PHP": "PHP",
-            "Perl": "Perl",
-            "Python": "Python",
-            "Ruby": "Ruby",
-            "VBSharp": "VB#",
-            "jQuery": "jQuery"
-          },
-          "projectStatuses": {
-            "Completed": "Completed",
-            "InProgress": "In Progress"
-          },
-          "regions": {
-            "APAC": "APAC",
-            "EMEA": "EMEA",
-            "LATAM": "LATAM",
-            "NA": "NA"
-          },
-          "spokenLanguages": {
-            "Czech": "Czech",
-            "Danish": "Danish",
-            "Dutch": "Dutch",
-            "English": "English",
-            "Estonian": "Estonian",
-            "Finnish": "Finnish",
-            "French": "French",
-            "German": "German",
-            "Hungarian": "Hungarian",
-            "Italian": "Italian",
-            "Japanese": "Japanese",
-            "Korean": "Korean",
-            "Latvian": "Latvian",
-            "Lithuanian": "Lithuanian",
-            "Polish": "Polish",
-            "Portuguese": "Portuguese",
-            "Russian": "Russian",
-            "SimplifiedChinese": "Simplified Chinese",
-            "Spanish": "Spanish",
-            "Swedish": "Swedish",
-            "Thai": "Thai",
-            "TraditionalChinese": "Traditional Chinese",
-            "Turkish": "Turkish"
-          },
-          "technologies": {
-            "AIML": "AI/ML",
-            "AWS": "Amazon Web Services",
-            "Android": "Android",
-            "Azure": "Microsoft Azure",
-            "Bots": "Bots (MSFT, Google, AWS, ...)",
-            "EMail": "EMail (POP/SMTP/...)",
-            "Facebook": "Facebook",
-            "GoogleCloud": "Google Cloud Services",
-            "MySQL": "MySQL",
-            "NoSQL": "NoSQL",
-            "SFCOM": "Salesforce",
-            "SMS": "SMS/MMS",
-            "Twitter": "Twitter",
-            "VoIP": "VoIP (SIP)",
-            "WhatsApp": "WhatsApp",
-            "iPhone": "iPhone"
-          },
-          "userLookingFor": {
-            "ContractWork": "Contract Work",
-            "FullTimeWork": "Full Time Work",
-            "KnowledgeFelloes": "Knowledge Felloes"
-          },
-          "userStatuses": {
-            "Available": "Available",
-            "Busy": "Busy",
-            "Undefined": "Undefined"
-          }
-        },
-        "filterCategory": {
-          "AND": "All",
-          "OR": "Any",
-          "sfCompanyType": "Types",
-          "sfCountries": "In Countries",
-          "sfCountry": "Based in",
-          "sfFeatures": "Features",
-          "sfGenesysPlatforms": "Genesys Platforms",
-          "sfProficiencies": "Proficiencies",
-          "sfProgrammingLanguages": "Programming Languages",
-          "sfRegions": "In Regions",
-          "sfSpokenLanguages": "Spoken Languages",
-          "sfTechnologies": "Technologies",
-          "sfUserLookingFor": "Work Type",
-          "sfUserStatus": "Statuses",
-          "showAll": "Show All",
-          "usingCondition": "Match"
-        },
-        "filterEntry": {
-          "showOnly": "Only"
-        },
-        "filterPanel": {
-          "applyFilters": "Apply Filters",
-          "resetFilters": "Reset"
-        },
-        "genbadge": {
-          "cancel": "Cancel",
-          "description": "Short Description",
-          "edit": "Edit Genesys Badge",
-          "expiresAt": "Valid until",
-          "includesCertification": "Certification",
-          "issuedAt": "Obtained on",
-          "issuedTo": "To",
-          "issuer": "Issued by",
-          "issuerUrl": "See profile",
-          "label": "Genesys Badge",
-          "lastRefresh": "Last refresh on",
-          "listing": {
-            "confirmDelete": "Are you sure you want to delete this badge?",
-            "confirmImport": "Are you sure you want to (re)import your Genesys Badges?",
-            "confirmImportNo": "Cancel",
-            "confirmImportYes": "Import",
-            "confirmNo": "Cancel",
-            "confirmYes": "Delete",
-            "confirmation": "Confirmation",
-            "label": "Genesys Badges"
-          },
-          "name": "Badge Name",
-          "new": "New Genesys Badge",
-          "save": "Save",
-          "url": "View Badge on YourAcclaim"
-        },
-        "logo": {
-          "cancel": "Cancel",
-          "edit": "Profile Picture",
-          "new": "Upload New Logo",
-          "select": "Browse...",
-          "upload": "Upload"
-        },
-        "profile": {
-          "bio": {
-            "company": "Current Company",
-            "description": "Short Description",
-            "label": "Bio",
-            "lookingFor": "Interested In",
-            "name": "Name",
-            "position": "Current Position",
-            "status": "Current Status",
-            "type": "Type",
-            "website": "Website"
-          },
-          "cancel": "Cancel",
-          "contacts": {
-            "bitbucket": "Bitbucket",
-            "community": "Genesys Community",
-            "email": "Email",
-            "facebook": "Facebook",
-            "github": "GitHub",
-            "label": "Published Contacts & Profiles",
-            "linkedin": "LinkedIn",
-            "phone": "Phone",
-            "twitter": "Twitter",
-            "whatsapp": "WhatsApp"
-          },
-          "deleteAccount": {
-            "closeCancel": "Cancel",
-            "closeDelete": "Delete",
-            "closeNo": "No",
-            "closeYes": "Yes",
-            "confirmDeleteAccount": "Are you sure you want to delete your account?",
-            "label": "Delete Account",
-            "warnDeleteAccount": "This action is irreversible. Your profile and account data will be deleted."
-          },
-          "edit": "Edit Profile",
-          "exit": "Exit Profile",
-          "label": "Profile",
-          "location": {
-            "countries": "Available in Countries",
-            "country": "Country",
-            "label": "Location & Languages",
-            "postalCode": "Postal Code",
-            "regions": "Available in Regions",
-            "spokenLanguages": "Spoken Languages"
-          },
-          "new": "New Profile",
-          "publish": {
-            "closeNo": "No",
-            "closeYes": "Yes",
-            "confirmPublish": "Are you sure you want to publish your profile?",
-            "confirmUnpublish": "Are you sure you want to unpublish your profile?",
-            "label": "Publish Profile",
-            "warnPublish": "When your profile is published, all your information will be available to the public.",
-            "warnUnpublish": "Unpublishing your profile will disable it from being searched and accessed. Any reviews you have left on other users can still be seen and publicly attributed to your name."
-          },
-          "save": "Save",
-          "skills": {
-            "features": "Features",
-            "genesysPlatforms": "Genesys Platforms",
-            "label": "Skills",
-            "other": {
-              "certifications": "Other Certifications",
-              "industryKnowledge": "Other Industry Knwoledge",
-              "knowledge": "Other Knowledge",
-              "label": "Other"
-            },
-            "proficiencies": "Proficiencies",
-            "programmingLanguages": "Languages",
-            "technologies": "Technologies"
-          }
-        },
-        "profileCard": {
-          "test": "Test"
-        },
-        "project": {
-          "cancel": "Cancel",
-          "edit": "Edit Project",
-          "fromDate": "From",
-          "info": {
-            "description": "Short Description",
-            "label": "Project Info",
-            "name": "Name",
-            "website": "Website"
-          },
-          "label": "Project",
-          "listing": {
-            "confirmDelete": "Are you sure you want to delete this project?",
-            "confirmNo": "Cancel",
-            "confirmYes": "Delete",
-            "confirmation": "Confirmation",
-            "label": "Projects"
-          },
-          "location": {
-            "country": "Country",
-            "label": "Customer Details",
-            "name": "Name",
-            "region": "Region",
-            "type": "Type"
-          },
-          "new": "New Project",
-          "save": "Save",
-          "skills": {
-            "features": "Features",
-            "genesysPlatforms": "Genesys Platforms",
-            "label": "Involved",
-            "other": "Other",
-            "programmingLanguages": "Languages",
-            "technologies": "Technologies"
-          },
-          "status": "Status",
-          "toDate": "To"
-        },
-        "searchResults": {
-          "loading": "Loading",
-          "showLoadMore": "Load More",
-          "sort": {
-            "name": "Name",
-            "platforms": "Platforms",
-            "projects": "Projects",
-            "userLookingFor": "Interested In",
-            "userStatus": "Status"
-          }
-        }
-      },
-      "contactUsForm": {
-        "additionalInfo": "Sírvase brindarnos más información sobre su interés en esta aplicación:",
-        "company": "Compañía",
-        "country": "País",
-        "description": "<p>Complete el formulario para obtener más información sobre <strong>{ listingName }</strong>.</p><p>Un representante se comunicará con usted en las próximas 24 horas.</p>",
-        "email": "Correo electrónico",
-        "errorEmailFormat": "Introducir un correo electrónico válido",
-        "errorPhoneFormat": "Introducir un número de teléfono válido",
-        "firstName": "Nombre",
-        "lastName": "Apellido",
-        "maxCharacterLimit": "Superó el límite máximo de 500 caracteres",
-        "phone": "Teléfono",
-        "province": "Provincia",
-        "selectCountry": "Seleccione su país",
-        "selectProvince": "Seleccione su provincia",
-        "selectState": "Seleccione su estado",
-        "state": "Estado",
-        "submit": "Enviar",
-        "successMessage": "<p>Su pedido de información adicional sobre {listingName} se ha enviado.</p><p>Un representante se comunicará con usted en las próximas 24 horas.</p>",
-        "title": "Cargo"
-      },
-      "exploreMenu": {
-        "community": "Comunidad",
-        "developerCenter": "Centro de programadores",
-        "resourceCenter": "Centro de recursos",
-        "title": "EXPLORAR",
-        "training": "Capacitación"
-      },
-      "featured": {
-        "essentials": "Aspectos básicos",
-        "goToFeatured": "Atrás",
-        "popular": "Aplicaciones elegidas de Genesys.",
-        "seeAll": "Ver todos"
-      },
-      "footer": {
-        "about": "Acerca de Creators",
-        "aboutGenesys": "Acerca de Genesys",
-        "blog": "Blog de Genesys",
-        "contactUs": "Contact Us",
-        "copyright": "Copyright © 2019 Genesys. Todos los derechos reservados.",
-        "genesysServices": "Servicios de Genesys",
-        "gettingStarted": "Cómo unirse a Creators",
-        "privacyPolicy": "Norma de privacidad",
-        "termsAndConditions": "Términos y condiciones"
-      },
-      "header": {
-        "contributorSignIn": "Inicio de sesión de colaboradores",
-        "getStarted": "Empezar",
-        "loginWidget": {
-          "categories": "Categorías",
-          "myProfile": "Mi profil",
-          "signIn": "iniciar sesión",
-          "signOut": "Cerrar sesión",
-          "signUp": "crear sesión"
-        },
-        "regionSelector": {
-          "region": "Región",
-          "title": "Seleccione su región"
-        },
-        "search": "Buscar",
-        "selectPlatform": "Seleccione su plataforma",
-        "settingsModal": {
-          "language": "Idioma",
-          "selectRegion": "Seleccionar región",
-          "title": "Seleccione su idioma"
-        },
-        "welcome": "Bienvenido a Creators"
-      },
-      "listingDetails": {
-        "addToWishlist": "Agregar a la lista de deseos",
-        "additionalInformation": {
-          "helpDocumentation": "Documentación de ayuda",
-          "marketingLocation": "Folleto comercial",
-          "termsOfService": "Términos y condiciones",
-          "title": "Información adicional"
-        },
-        "author": "Autor",
-        "breadcrumbHome": "Inicio",
-        "classifications": {
-          "advancedIntegrationConnector": "Conector de integración avanzada",
-          "wallboardConnector": "Conector de tablero grupal"
-        },
-        "comingSoon": "Próximamente",
-        "contactUs": "Contáctenos",
-        "industries": {
-          "airlines": "Aerolíneas",
-          "automotive": "Automotriz",
-          "banking": "Bancos",
-          "healthcare": "Atención médica",
-          "highTech": "Alta tecnología",
-          "hospitality": "Hotelería",
-          "retail": "Venta al por menor",
-          "telco": "Telecomunicaciones",
-          "title": "Industrias",
-          "universal": "Universal"
-        },
-        "install": "Instalar",
-        "languages": {
-          "arabic": "Árabe",
-          "australianEnglish": "Inglés de Australia",
-          "chinese": "Chino",
-          "danish": "Danés",
-          "dutch": "Neerlandés",
-          "english": "Inglés",
-          "euroEnglish": "Inglés europeo",
-          "finnish": "Finlandés",
-          "frenchCanadian": "Francés de Canadá",
-          "german": "Alemán",
-          "italian": "Italiano",
-          "japanese": "Japonés",
-          "korean": "Coreano",
-          "mexicanSpanish": "Español de México",
-          "norwegian": "Noruego",
-          "nzEnglish": "Inglés de Nueva Zelanda",
-          "other": "Sin traducción",
-          "polish": "Polaco",
-          "portuguese": "Portugués",
-          "russian": "Ruso",
-          "simplifiedChinese": "Chino simplificado",
-          "spanish": "Español",
-          "swedish": "Sueco",
-          "thai": "Thai",
-          "title": "Idiomas",
-          "traditionalChinese": "Chino tradicional",
-          "ukEnglish": "Inglés del Reino Unido"
-        },
-        "licensingClassifications": "Clasificaciones de las licencias",
-        "licensingOwnership": "Propietario de las licencias",
-        "licensingPermissions": "Permisos",
-        "notifyMe": "Notificarme",
-        "platforms": {
-          "cloud": "Nube",
-          "premise": "Local",
-          "title": "Plataformas"
-        },
-        "readMore": "Leer más",
-        "region": {
-          "regions": {
-            "ap-northeast-1": "Asia Pacífico (Tokio)",
-            "ap-southeast-2": "Asia-Pacífico (Sídney)",
-            "eu-central-1": "Europa, Medio Oriente y África (Frankfurt)",
-            "eu-west-1": "Europa, Medio Oriente y África (Dublín)",
-            "us-east-1": "Continente americano"
-          },
-          "title": "Regiones"
-        },
-        "share": "Compartir",
-        "showLess": "Mostrar menos",
-        "tabs": {
-          "description": "Descripción",
-          "pricing": "Precio",
-          "productDetails": "Detalles del producto",
-          "useCases": "Casos de uso"
-        },
-        "version": "Versión"
-      },
-      "listingManagement": {
-        "add": "Agregar",
-        "addCategoryError": "Error al agregar la categoría.",
-        "addCategorySuccess": "Categoría agregada correctamente.",
-        "authorName": "Nombre del autor",
-        "authorWebsite": "Sitio web del autor",
-        "cid": "ID de campaña",
-        "delete": "Eliminar",
-        "deleteCategoryError": "Error al eliminar la categoría.",
-        "deleteCategorySuccess": "Categoría eliminada correctamente.",
-        "deleteError": "Error al eliminar el listado.",
-        "deleteMarketingURLError": "Error al eliminar el folleto comercial.",
-        "deleteMarketingURLSuccess": "Folleto comercial eliminado correctamente.",
-        "deleteSuccess": "Eliminado correctamente.",
-        "description": "Descripción",
-        "download": "Descargar",
-        "edit": "Editar",
-        "helpDocumentationUrl": "URL de documentación de ayuda",
-        "imageDeleteError": "Error al eliminar la imagen.",
-        "imageDeleteSuccess": "Imagen eliminada correctamente.",
-        "imageUploadInstructions": "Seleccionar o soltar una imagen a continuación para cargarla.",
-        "invalidPermissions": "No tiene permiso para ver esta sección",
-        "invalidUrl": {
-          "helpDocumentationURL": "Introducir una URL válida de documentación de ayuda. {language}",
-          "termsOfService": "Introducir una URL válida de términos y condiciones. {language}",
-          "website": "Introducir una URL válida del sitio web del autor. {language}"
-        },
-        "invalidVideoUrl": "URL de video no válida",
-        "listingBriefDescription": "Descripción breve del listado",
-        "listingDescription": "Descripción del listado",
-        "listingName": "Nombre del listado",
-        "marketBrochureUrl": "URL de folleto comercial",
-        "missingName": "Establecer el nombre del listado.",
-        "missingPlatform": "Establecer la plataforma del listado.",
-        "missingPricePrice": "Establecer un precio. ({language})",
-        "missingUseCaseTitle": "Establecer un título para el caso de uso. ({language})",
-        "myListings": "Mis listados",
-        "name": "Nombre",
-        "newListing": "Listado nuevo",
-        "ownership": {
-          "genesys": "Genesys",
-          "partner": "Socio",
-          "thirdParty": "Tercero"
-        },
-        "platform": "Plataforma",
-        "price": "Precio",
-        "priceLower": "precio",
-        "registryId": "ID de registro",
-        "save": "guardar",
-        "saveError": "Error al guardar el listado.",
-        "saveSuccess": "Guardado correctamente.",
-        "screenshotsMaxLengthReached": "Se alcanzó el número máximo de capturas de pantalla.",
-        "select": "Seleccionar",
-        "selectCategory": "Seleccionar categorías",
-        "selectOwnership": "Seleccionar propietario",
-        "selectPlatform": "Seleccionar plataforma",
-        "selectPlatformSubcategory": "Seleccionar subcategorías de la plataforma",
-        "selectSomeValues": "Seleccionar algunos valores...",
-        "submit": "Enviar",
-        "termsAndConditionsUrl": "URL de términos y condiciones",
-        "typeHere": "Escribir aquí...",
-        "useCase": "Caso de uso",
-        "useCaseLower": "caso de uso",
-        "videoUpload": "Carga de video",
-        "videoUploadInstructions": "Hacer clic a continuación para cargar un video"
-      },
-      "navigationSidebar": {
-        "categories": {
-          "businessOptimization": "Optimización del negocio",
-          "customerEngagement": "Interacción con clientes",
-          "employeeEngagement": "Interacción con empleados",
-          "featured": "Destacado",
-          "title": "Categorías"
-        },
-        "platform": {
-          "purecloud": "PureCloud",
-          "pureconnect": "PureConnect",
-          "pureengage": "PureEngage",
-          "title": "PureCloud"
-        },
-        "subcategories": {
-          "analytics": "Análisis",
-          "artificialIntelligence": "Inteligencia artificial",
-          "collaboration": "Colaboración",
-          "digital": "Digital",
-          "essentials": "Aspectos básicos",
-          "knowledgeManagement": "Gestión del conocimiento",
-          "omniChannel": "Integral",
-          "outbound": "Llamadas salientes",
-          "platformEnhancement": "Optimización de plataformas",
-          "platformIntegration": "Integración de plataformas",
-          "popular": "Aplicaciones elegidas de Genesys.",
-          "selfService": "Autoservicio",
-          "workforceOptimization": "Optimización de recursos",
-          "workloadManagement": "Gestión de la carga de trabajo"
-        }
-      },
-      "search": {
-        "noResultsFound": "No se encontraron resultados",
-        "searchResultsBreadcrumb": "Resultados de la búsqueda"
-      }
-    },
-    "languageName": "Español"
-  };
-  _exports.default = _default;
-});
 ;define("developer-network/translations/fr", ["exports"], function (_exports) {
   "use strict";
 
@@ -10178,11 +9328,12 @@
         "emptySelectLabel": "- sélectionner -",
         "enums": {
           "companyTypes": {
+            "Company": "Entreprise",
             "Contractor": "Auto-entrepreneur",
-            "GenesysEmployee": "Employé Genesys",
-            "GenesysPartner": "Partenaire Genesys",
-            "ISV": "ISV",
-            "Other": "Autre"
+            "GenesysEmployee": "Employé chez Genesys",
+            "GenesysPartner": "Travaille pour un Genesys Partner",
+            "Other": "Individu",
+            "Student": "Etudiant"
           },
           "countries": {
             "AD": "Andorra",
@@ -10436,11 +9587,13 @@
             "ZW": "Zimbabwe"
           },
           "features": {
+            "Bots": "Chat & Voice Bots",
             "BusinessOptimization": "Business Optimization",
             "CallRecording": "Call Recording",
             "DesktopClient": "Desktop Client",
             "DigitalMessaging": "Digital/Messaging",
-            "Reporting": "Reporting",
+            "Outbound": "Outbound Dialing",
+            "Reporting": "Reporting & Analytics",
             "Voice": "Voice",
             "WEM": "Workforce Management"
           },
@@ -10461,6 +9614,7 @@
             "ActionScript": "ActionScript",
             "CPlus": "C/C++",
             "CSharp": "C#",
+            "Go": "Go",
             "HTML5": "HTML5",
             "HTMLCSS": "HTML/CSS",
             "Java": "Java",
@@ -10471,6 +9625,7 @@
             "Perl": "Perl",
             "Python": "Python",
             "Ruby": "Ruby",
+            "Swift": "Swift",
             "VBSharp": "VB#",
             "jQuery": "jQuery"
           },
@@ -10515,9 +9670,11 @@
             "Android": "Android",
             "Azure": "Microsoft Azure",
             "Bots": "Bots",
+            "DialogFlow": "Dialog Flow",
             "EMail": "EMail (POP/SMTP/...)",
             "Facebook": "Facebook",
             "GoogleCloud": "Google Cloud Services",
+            "MSFTSQL": "Microsoft SQL Server",
             "MySQL": "MySQL",
             "NoSQL": "NoSQL",
             "SFCOM": "Salesforce",
@@ -10610,6 +9767,7 @@
             "website": "Site Web"
           },
           "cancel": "Annuler",
+          "contact": "Me Contacter",
           "contacts": {
             "bitbucket": "Bitbucket",
             "community": "Genesys Community",
@@ -10786,6 +9944,12 @@
           "language": "Langue",
           "selectRegion": "Choisir une région",
           "title": "Choisir une langue"
+        },
+        "staticPages": {
+          "about": "Coming Soon...",
+          "gettingStarted": "Coming Soon...",
+          "loggingSpinner": "Logging you in... Please wait.",
+          "pageNotFound": "Oops, the page you're looking for wasn't found"
         },
         "welcome": "Bienvenue dans Creators !"
       },
@@ -11139,7 +10303,7 @@ catch(err) {
 
 ;
           if (!runningTests) {
-            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","es":"Español","fr":"Français"},"name":"developer-network","version":"0.0.0+25440f07"});
+            require("developer-network/app")["default"].create({"PICTURE_MAX_SIZE":200,"INTL_LANGUAGES":{"en-us":"English","fr":"Français"},"name":"developer-network","version":"0.0.0+99a55cc9"});
           }
         
 //# sourceMappingURL=developer-network.map
