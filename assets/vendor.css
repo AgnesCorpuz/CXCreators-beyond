@@ -419,6 +419,37 @@ svg:not(:root).svg-inline--fa {
   position: static;
   width: auto;
 }
+
+.svg-inline--fa .fa-primary {
+  fill: var(--fa-primary-color, currentColor);
+  opacity: 1;
+  opacity: var(--fa-primary-opacity, 1);
+}
+
+.svg-inline--fa .fa-secondary {
+  fill: var(--fa-secondary-color, currentColor);
+  opacity: 0.4;
+  opacity: var(--fa-secondary-opacity, 0.4);
+}
+
+.svg-inline--fa.fa-swap-opacity .fa-primary {
+  opacity: 0.4;
+  opacity: var(--fa-secondary-opacity, 0.4);
+}
+
+.svg-inline--fa.fa-swap-opacity .fa-secondary {
+  opacity: 1;
+  opacity: var(--fa-primary-opacity, 1);
+}
+
+.svg-inline--fa mask .fa-primary,
+.svg-inline--fa mask .fa-secondary {
+  fill: black;
+}
+
+.fad.fa-inverse {
+  color: #fff;
+}
 /* Fix for https://github.com/kaliber5/ember-bootstrap/issues/355 */
 .card-header[role='tab'] {
     cursor: pointer;
@@ -1090,6 +1121,45 @@ label > .x-toggle-default.large {
     float: none;
     margin: auto;
   }
+}
+
+slide-toggle {
+  box-sizing: border-box;
+  background: #f0f0f0;
+  border: 0.05em solid #e0e0e0;
+  cursor: pointer;
+  width: 1.75em;
+  height: 1em;
+  position: static;
+  display: inline-block;
+  font-size: 2em;
+  border-radius: 0.5em;
+}
+
+slide-toggle > .slideToggleButton {
+  background: #f8f8f8;
+  border-radius: 0.5em;
+  height: 1em;
+  position: relative;
+  left: 0;
+  top: -0.05em;
+  width: 1em;
+  box-shadow: 1px 0 2px 0 #bbb;
+  transition: 0.1s ease-out;
+}
+
+slide-toggle.isOn {
+  background: #37b737 linear-gradient(to bottom, #2c922c 0, #2c922c 20%, #37b737 100%);
+  border-color: #37b737;
+}
+
+slide-toggle.isOn > .slideToggleButton {
+  -ms-transform: translate(0.75em, 0);
+  transform: translate(0.75em, 0);
+  -webkit-transform: translate(0.75em, 0);
+  -moz-transform: translate(0.75em, 0);
+  -o-transform: translate(0.75em, 0);
+  box-shadow: -1px 0 2px 0 #3f7952;
 }
 
 slide-toggle {
