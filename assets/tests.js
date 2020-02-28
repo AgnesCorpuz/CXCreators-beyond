@@ -946,7 +946,7 @@ define("developer-network/tests/lint/app.lint-test", [], function () {
   });
   QUnit.test('components/generic/img-uploader-container.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'components/generic/img-uploader-container.js should pass ESLint\n\n25:43 - Unexpected console statement. (no-console)');
+    assert.ok(false, 'components/generic/img-uploader-container.js should pass ESLint\n\n48:34 - \'data\' is defined but never used. (no-unused-vars)\n90:43 - Unexpected console statement. (no-console)');
   });
   QUnit.test('components/global/app-foundry-footer.js', function (assert) {
     assert.expect(1);
